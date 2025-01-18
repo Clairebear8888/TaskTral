@@ -200,9 +200,9 @@ export const performAction = async (action: NextAction) => {
 
 // console.log('JSON:', chatResponse.choices[0].message.content);
 
-export const getNextScreenshot = async (recordScreenDir: string, 
-                                        replayScreens: boolean,
-                                        screenFiles: string[]): Promise<string> => {
+export const getNextScreenshot = async (recordScreenDir: string,
+  replayScreens: boolean,
+  screenFiles: string[]): Promise<string> => {
   // Capture a screenshot or replay a recorded screenshot
   if (replayScreens == true) {
     // replaying screens
@@ -231,9 +231,11 @@ export const getNextScreenshot = async (recordScreenDir: string,
   }
 };
 
-export const getRequest = async(client: Mistral, ai_prompt: string, screenBase64: string): Promise<any> => {
+export const getRequest = async (client: Mistral, ai_prompt: string, instructions, screenBase64: string): Promise<any> => {
+
   const chatResponse = await client.chat.complete({
-    model: 'pixtral-12b',
+    responseFormat: { type: 'json_object' },
+    model: 'mistral-small-latest',
     messages: [
       {
         role: 'user',
@@ -243,13 +245,33 @@ export const getRequest = async(client: Mistral, ai_prompt: string, screenBase64
             text: ai_prompt,
           },
           {
-            type: 'image_url',
-            imageUrl: `data:image/jpeg;base64,${screenBase64}`,
+            type: 'text',
+            text: instructions,
           },
         ],
       },
     ],
   });
+
+  console.dir(chatResponse, { depth: null });
+  return;
+
+
+  // Save timestamp and sentence to JSONL file
+  const timestamp = Date.now();
+  if (chatResponse.choices && chatResponse.choices.length > 0) {
+    const sentence = chatResponse.choices[0].message.content;
+    const jsonLine = `${JSON.stringify({
+      timestamp,
+      sentence,
+    })}\n`;
+
+    // Create the file if it doesn't exist
+    if (!fs.existsSync('activity_log.jsonl')) {
+      fs.writeFileSync('activity_log.jsonl', '');
+    }
+    fs.appendFileSync('activity_log.jsonl', jsonLine);
+  }
   return chatResponse;
 }
 
@@ -257,16 +279,16 @@ export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
-  
+
   // ToDo: replace with UI interface
   const replayScreens = true;
 
   let recordScreenDir = '';
   let screenFiles: string[] = [];
 
-  
+
   console.log('INITIALIZING');
-  
+
   const recordScreenBaseDir = './_recorded_screens';
   // Create the directory for recorded screens
   if (replayScreens == false) {
@@ -286,11 +308,11 @@ export const runAgent = async (
     screenFiles = fs.readdirSync(recordScreenDir);
   }
 
-  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz'; 
+  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
 
-  console.log('START RUNNING');
+  console.log('START RUNNING with instructions:', getState().instructions);
 
   setState({
     ...getState(),
@@ -299,10 +321,24 @@ export const runAgent = async (
     error: null,
   });
 
-  const ai_prompt = "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation."
-
+  const ai_prompt = `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+{
+  "tasks": [
+    {
+      "title": "Write a blog post",
+      "timeValue": 10,
+      "timeUnit": "minutes"
+    },
+    {
+      "title": "Write a blog post",
+      "timeValue": 2,
+      "timeUnit": "hours"
+    }
+  ]
+}
+`;
   while (getState().running) {
-    
+
     const screenBase64 = await getNextScreenshot(recordScreenDir, replayScreens, screenFiles);
 
     if (screenBase64 == '') {
@@ -311,7 +347,7 @@ export const runAgent = async (
     }
     console.log('SCREEN', screenBase64.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await getRequest(client, ai_prompt, screenBase64);
+    const chatResponse = await getRequest(client, ai_prompt, getState().instructions || '', screenBase64);
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 

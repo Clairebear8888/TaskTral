@@ -38,13 +38,6 @@ function Main() {
     dispatch({ type: 'RUN_AGENT', payload: null });
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.metaKey && !e.shiftKey) {
-      e.preventDefault();
-      startRun();
-    }
-  };
-
   return (
     <Box
       position="relative"
