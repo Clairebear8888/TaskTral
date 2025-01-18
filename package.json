@@ -1,5 +1,6 @@
 {
   "name": "agent.exe",
+  "version": "0.1.0",
   "description": "Control your computer with Claude",
   "keywords": [],
   "homepage": "https://github.com/corbt/agent.exe",
