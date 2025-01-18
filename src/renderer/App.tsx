@@ -1,18 +1,16 @@
-import React from 'react';
 import {
   Box,
   Button,
   ChakraProvider,
   HStack,
   Heading,
-  Link,
-  Switch,
+  Spinner,
   VStack,
   extendTheme,
-  Spinner,
   useToast,
 } from '@chakra-ui/react';
-import { FaGithub, FaStop, FaTrash } from 'react-icons/fa';
+import React from 'react';
+import { FaStop, FaTrash } from 'react-icons/fa';
 import { HiMinus, HiX } from 'react-icons/hi';
 import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
 import { useDispatch } from 'zutron';
@@ -60,7 +58,7 @@ function Main() {
       {/* Title heading no longer needs drag property since parent is draggable */}
       <Box position="absolute" top={2} left={6}>
         <Heading fontFamily="Garamond, serif" fontWeight="hairline">
-          Agent.exe
+          TaskTral
         </Heading>
       </Box>
 
@@ -74,11 +72,11 @@ function Main() {
           '-webkit-app-region': 'no-drag',
         }}
       >
-        <Link href="https://github.com/corbt/agent.exe" isExternal>
+        {/* <Link href="https://github.com/corbt/agent.exe" isExternal>
           <Button variant="ghost" size="sm" aria-label="GitHub" minW={8} p={0}>
             <FaGithub />
           </Button>
-        </Link>
+        </Link> */}
         <Button
           size="sm"
           variant="ghost"
@@ -112,7 +110,7 @@ function Main() {
           },
         }}
       >
-        <Box
+        {/* <Box
           as="textarea"
           placeholder="What can I do for you today?"
           width="100%"
@@ -146,9 +144,9 @@ function Main() {
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
           onKeyDown={handleKeyDown}
-        />
+        /> */}
         <HStack justify="space-between" align="center" w="100%">
-          <HStack spacing={2}>
+          {/* <HStack spacing={2}>
             <Switch
               isChecked={fullyAuto}
               onChange={(e) => {
@@ -162,7 +160,7 @@ function Main() {
               }}
             />
             <Box>Full Auto</Box>
-          </HStack>
+          </HStack> */}
           <HStack>
             {running && <Spinner size="sm" color="gray.500" mr={2} />}
             {!running && runHistory.length > 0 && (

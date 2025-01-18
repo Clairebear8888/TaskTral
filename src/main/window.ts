@@ -1,7 +1,7 @@
-import { app, BrowserWindow, ipcMain, shell, screen } from 'electron';
+import { app, BrowserWindow, ipcMain, screen, shell } from 'electron';
 import path from 'path';
-import { resolveHtmlPath } from './util';
 import MenuBuilder from './menu';
+import { resolveHtmlPath } from './util';
 
 let mainWindow: BrowserWindow | null = null;
 let fadeInterval: NodeJS.Timeout | null = null;

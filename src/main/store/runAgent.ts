@@ -5,10 +5,10 @@ import {
 import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
 import { desktopCapturer, screen } from 'electron';
+import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
-import { AppState, NextAction } from './types';
 import { extractAction } from './extractAction';
-import { hideWindowBlock, showWindow } from '../window';
+import { AppState, NextAction } from './types';
 
 const MAX_STEPS = 50;
 
