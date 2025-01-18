@@ -3,11 +3,11 @@ import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
 import { Mistral } from '@mistralai/mistralai';
 import { desktopCapturer, screen } from 'electron';
+import fs from 'fs';
+import path from 'path';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
-import fs from 'fs';
-import path from 'path';
 
 const MAX_STEPS = 50;
 
@@ -200,9 +200,11 @@ export const performAction = async (action: NextAction) => {
 
 // console.log('JSON:', chatResponse.choices[0].message.content);
 
-export const getNextScreenshot = async (recordScreenDir: string,
+export const getNextScreenshot = async (
+  recordScreenDir: string,
   replayScreens: boolean,
-  screenFiles: string[]): Promise<string> => {
+  screenFiles: string[],
+): Promise<string> => {
   // Capture a screenshot or replay a recorded screenshot
   if (replayScreens == true) {
     // replaying screens
@@ -214,26 +216,26 @@ export const getNextScreenshot = async (recordScreenDir: string,
     console.log('RECORDED SCREEN', screenFile);
     return fs.readFileSync(path.join(recordScreenDir, screenFile), 'base64');
   }
-  else {
-    console.log('TAKE SCREENSHOT');
-    const screenBase64 = await getScreenshot();
 
-    // ToDo: Check to remove hard coded configuration
-    const recordScreens = true;
-    // record screenshot as file with current time stamp in its name
-    if (recordScreens) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
-      fs.writeFileSync(filePath, screenBase64, 'base64');
-      console.log('SCREEN RECORDED', filePath);
-    }
-    return screenBase64;
+  console.log('TAKE SCREENSHOT');
+  const screenBase64 = await getScreenshot();
+
+  // ToDo: Check to remove hard coded configuration
+  const recordScreens = true;
+  // record screenshot as file with current time stamp in its name
+  if (recordScreens) {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+    fs.writeFileSync(filePath, screenBase64, 'base64');
+    console.log('SCREEN RECORDED', filePath);
   }
+  return screenBase64;
 };
 
-
-export const getTasks = async(client: Mistral, instructions: string): Promise<any> => {
-
+export const getTasks = async (
+  client: Mistral,
+  instructions: string,
+): Promise<any> => {
   const chatResponseTasks = await client.chat.complete({
     responseFormat: { type: 'json_object' },
     model: 'mistral-small-latest',
@@ -278,12 +280,16 @@ export const getTasks = async(client: Mistral, instructions: string): Promise<an
   return tasks;
 };
 
-export const getRequest = async (client: Mistral, tasks: any, screenBase64: string): Promise<any> => {
-  // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',            
+export const getRequest = async (
+  client: Mistral,
+  tasks: any,
+  screenBase64: string,
+): Promise<any> => {
+  // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
   const ai_prompt = `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
 TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
 
-Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`
+Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`;
 
   const chatResponse = await client.chat.complete({
     responseFormat: { type: 'json_object' },
@@ -307,7 +313,6 @@ Example output: { "task": "do research", "summary": "The user is writing a JavaS
 
   console.dir(chatResponse, { depth: null });
 
-
   // Save timestamp and sentence to JSONL file
   const timestamp = Date.now();
   if (chatResponse.choices && chatResponse.choices.length > 0) {
@@ -324,7 +329,7 @@ Example output: { "task": "do research", "summary": "The user is writing a JavaS
     fs.appendFileSync('activity_log.jsonl', jsonLine);
   }
   return chatResponse;
-}
+};
 
 export const runAgent = async (
   setState: (state: AppState) => void,
@@ -343,7 +348,6 @@ export const runAgent = async (
   let recordScreenDir = '';
   let screenFiles: string[] = [];
 
-
   console.log('INITIALIZING');
 
   const recordScreenBaseDir = './_recorded_screens';
@@ -351,14 +355,13 @@ export const runAgent = async (
   if (replayScreens == false) {
     // create subdirectory for each program launch
 
-    //const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const timestamp = '2024-01-18_14-00'
+    // const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = '2024-01-18_14-00';
     recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
     fs.mkdirSync(recordScreenDir, { recursive: true });
-  }
-  else {
+  } else {
     // ToDo: provide directory/time stamp (with test data)
-    const timestamp = '2024-01-18_14-00'
+    const timestamp = '2024-01-18_14-00';
 
     // create list of files in the directory
     recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
@@ -368,18 +371,20 @@ export const runAgent = async (
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
-
   console.log('START RUNNING with instructions:', getState().instructions);
 
-  let tasks = await getTasks(client, getState().instructions || '');
+  const tasks = await getTasks(client, getState().instructions || '');
   setState({
     ...getState(),
     tasks,
   });
 
   while (getState().running) {
-
-    const screenBase64 = await getNextScreenshot(recordScreenDir, replayScreens, screenFiles);
+    const screenBase64 = await getNextScreenshot(
+      recordScreenDir,
+      replayScreens,
+      screenFiles,
+    );
 
     if (screenBase64 == '') {
       // todo: proper stop of the loop with some feedback
