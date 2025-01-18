@@ -241,6 +241,8 @@ export const getTasks = async (
           {
             type: 'text',
             text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+            Use as little words to describe the task as possible. If the instruction is "I am working on code" then the task should be "Code". So try to be as concise as possible.
+            Example output:
 {
   "tasks": [
     {
@@ -281,10 +283,21 @@ export const getRequest = async (
   screenBase64: string,
 ): Promise<any> => {
   // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
-  const ai_prompt = `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
-TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
+  const ai_prompt = `Given this set of Tasks and a screenshot, determine which task the user is working on.
 
-Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`;
+  For the task take one from the following list:
+  ${tasks.map((t: any) => t.title).join(', ')}
+
+  Summarize what the user is doing in this screenshot. Be very specific. Avoid generic statements like "the user is working" or "the user is coding."
+  Instead, provide details such as the project they are working on, the subject of the email they are writing or reading, and to whom they are writing.
+
+  Focus only on the largest visible application window.
+
+  Example output:
+  {
+    "task": "Research",
+    "summary": "The user is writing a JavaScript file named 'runAgent.ts', which is part of a project involving tracking and tagging activities."
+  }`;
 
   const chatResponse = await client.chat.complete({
     responseFormat: { type: 'json_object' },
