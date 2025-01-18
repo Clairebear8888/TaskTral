@@ -31,3 +31,6 @@ npm-debug.log.*
 .env
 
 activity_log.jsonl
+tasks.json
+
+_r*

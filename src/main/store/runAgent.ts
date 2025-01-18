@@ -3,10 +3,11 @@ import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
 import { Mistral } from '@mistralai/mistralai';
 import { desktopCapturer, screen } from 'electron';
-import fs from 'fs';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
+import fs from 'fs';
+import path from 'path';
 
 const MAX_STEPS = 50;
 
@@ -194,24 +195,44 @@ export const performAction = async (action: NextAction) => {
     default:
       throw new Error(`Unsupported action: ${action.type}`);
   }
+  return '';
 };
 
 // console.log('JSON:', chatResponse.choices[0].message.content);
 
-export const runAgent = async (
-  setState: (state: AppState) => void,
-  getState: () => AppState,
-) => {
-  setState({
-    ...getState(),
-    running: true,
-    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
-    error: null,
-  });
-  console.log('START RUNNING with instructions:', getState().instructions);
+export const getNextScreenshot = async (recordScreenDir: string,
+  replayScreens: boolean,
+  screenFiles: string[]): Promise<string> => {
+  // Capture a screenshot or replay a recorded screenshot
+  if (replayScreens == true) {
+    // replaying screens
+    const screenFile = screenFiles.shift();
+    if (screenFile == undefined) {
+      console.log('Done with replay');
+      return '';
+    }
+    console.log('RECORDED SCREEN', screenFile);
+    return fs.readFileSync(path.join(recordScreenDir, screenFile), 'base64');
+  }
+  else {
+    console.log('TAKE SCREENSHOT');
+    const screenBase64 = await getScreenshot();
 
-  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
-  const client = new Mistral({ apiKey });
+    // ToDo: Check to remove hard coded configuration
+    const recordScreens = true;
+    // record screenshot as file with current time stamp in its name
+    if (recordScreens) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+      fs.writeFileSync(filePath, screenBase64, 'base64');
+      console.log('SCREEN RECORDED', filePath);
+    }
+    return screenBase64;
+  }
+};
+
+
+export const getTasks = async(client: Mistral, instructions: string): Promise<any> => {
 
   const chatResponseTasks = await client.chat.complete({
     responseFormat: { type: 'json_object' },
@@ -241,7 +262,7 @@ export const runAgent = async (
           },
           {
             type: 'text',
-            text: getState().instructions || '',
+            text: instructions || '',
           },
         ],
       },
@@ -254,149 +275,126 @@ export const runAgent = async (
 
   // write tasks to tasks.json
   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+  return tasks;
+};
 
+export const getRequest = async (client: Mistral, tasks: any, screenBase64: string): Promise<any> => {
+  // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',            
+  const ai_prompt = `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
+TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
+
+Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`
+
+  const chatResponse = await client.chat.complete({
+    responseFormat: { type: 'json_object' },
+    model: 'pixtral-12b',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: ai_prompt,
+          },
+          {
+            type: 'image_url',
+            imageUrl: `data:image/jpeg;base64,${screenBase64}`,
+          },
+        ],
+      },
+    ],
+  });
+
+  console.dir(chatResponse, { depth: null });
+
+
+  // Save timestamp and sentence to JSONL file
+  const timestamp = Date.now();
+  if (chatResponse.choices && chatResponse.choices.length > 0) {
+    const sentence = chatResponse.choices[0].message.content;
+    const jsonLine = `${JSON.stringify({
+      timestamp,
+      sentence,
+    })}\n`;
+
+    // Create the file if it doesn't exist
+    if (!fs.existsSync('activity_log.jsonl')) {
+      fs.writeFileSync('activity_log.jsonl', '');
+    }
+    fs.appendFileSync('activity_log.jsonl', jsonLine);
+  }
+  return chatResponse;
+}
+
+export const runAgent = async (
+  setState: (state: AppState) => void,
+  getState: () => AppState,
+) => {
+  setState({
+    ...getState(),
+    running: true,
+    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
+    error: null,
+  });
+
+  // ToDo: replace with UI interface
+  const replayScreens = false;
+
+  let recordScreenDir = '';
+  let screenFiles: string[] = [];
+
+
+  console.log('INITIALIZING');
+
+  const recordScreenBaseDir = './_recorded_screens';
+  // Create the directory for recorded screens
+  if (replayScreens == false) {
+    // create subdirectory for each program launch
+
+    //const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = '2024-01-18_14-00'
+    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
+    fs.mkdirSync(recordScreenDir, { recursive: true });
+  }
+  else {
+    // ToDo: provide directory/time stamp (with test data)
+    const timestamp = '2024-01-18_14-00'
+
+    // create list of files in the directory
+    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
+    screenFiles = fs.readdirSync(recordScreenDir);
+  }
+
+  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
+  const client = new Mistral({ apiKey });
+
+
+  console.log('START RUNNING with instructions:', getState().instructions);
+
+  let tasks = await getTasks(client, getState().instructions || '');
   setState({
     ...getState(),
     tasks,
   });
 
   while (getState().running) {
-    console.log('TAKE SCREENSHOT');
-    const screenBase64 = await getScreenshot();
+
+    const screenBase64 = await getNextScreenshot(recordScreenDir, replayScreens, screenFiles);
+
+    if (screenBase64 == '') {
+      // todo: proper stop of the loop with some feedback
+      break;
+    }
     console.log('SCREEN', screenBase64.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await client.chat.complete({
-      model: 'pixtral-12b',
-      responseFormat: { type: 'json_object' },
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
-              text: `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
-TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
-
-Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`,
-            },
-            {
-              type: 'image_url',
-              imageUrl: `data:image/jpeg;base64,${screenBase64}`,
-            },
-          ],
-        },
-      ],
-    });
+    const chatResponse = await getRequest(client, tasks, screenBase64);
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    // Save timestamp and sentence to JSONL file
-    const timestamp = Date.now();
-    if (chatResponse.choices && chatResponse.choices.length > 0) {
-      const sentence = chatResponse.choices[0].message.content;
-      const jsonLine = `${JSON.stringify({
-        timestamp,
-        sentence,
-      })}\n`;
-
-      // Create the file if it doesn't exist
-      if (!fs.existsSync('activity_log.jsonl')) {
-        fs.writeFileSync('activity_log.jsonl', '');
-      }
-      fs.appendFileSync('activity_log.jsonl', jsonLine);
+    if (replayScreens == false) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5000);
+      });
     }
-
-    await new Promise((resolve) => {
-      setTimeout(resolve, 5000);
-    });
   }
-
-  // while (getState().running) {
-  //   // Add this check at the start of the loop
-  //   if (getState().runHistory.length >= MAX_STEPS * 2) {
-  //     setState({
-  //       ...getState(),
-  //       error: 'Maximum steps exceeded',
-  //       running: false,
-  //     });
-  //     break;
-  //   }
-
-  //   try {
-  //     const message = await promptForAction(getState().runHistory);
-  //     setState({
-  //       ...getState(),
-  //       runHistory: [...getState().runHistory, message],
-  //     });
-  //     const { action, reasoning, toolId } = extractAction(
-  //       message as BetaMessage,
-  //     );
-  //     console.log('REASONING', reasoning);
-  //     console.log('ACTION', action);
-
-  //     if (action.type === 'error') {
-  //       setState({
-  //         ...getState(),
-  //         error: action.message,
-  //         running: false,
-  //       });
-  //       break;
-  //     } else if (action.type === 'finish') {
-  //       setState({
-  //         ...getState(),
-  //         running: false,
-  //       });
-  //       break;
-  //     }
-  //     if (!getState().running) {
-  //       break;
-  //     }
-
-  //     hideWindowBlock(() => performAction(action));
-
-  //     await new Promise((resolve) => setTimeout(resolve, 500));
-  //     if (!getState().running) {
-  //       break;
-  //     }
-
-  //     setState({
-  //       ...getState(),
-  //       runHistory: [
-  //         ...getState().runHistory,
-  //         {
-  //           role: 'user',
-  //           content: [
-  //             {
-  //               type: 'tool_result',
-  //               tool_use_id: toolId,
-  //               content: [
-  //                 {
-  //                   type: 'text',
-  //                   text: 'Here is a screenshot after the action was executed',
-  //                 },
-  //                 {
-  //                   type: 'image',
-  //                   source: {
-  //                     type: 'base64',
-  //                     media_type: 'image/png',
-  //                     data: await getScreenshot(),
-  //                   },
-  //                 },
-  //               ],
-  //             },
-  //           ],
-  //         },
-  //       ],
-  //     });
-  //   } catch (error: unknown) {
-  //     setState({
-  //       ...getState(),
-  //       error:
-  //         error instanceof Error ? error.message : 'An unknown error occurred',
-  //       running: false,
-  //     });
-  //     break;
-  //   }
-  // }
 };
