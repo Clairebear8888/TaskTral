@@ -4,9 +4,9 @@ import { runAgent } from './runAgent';
 import { AppState } from './types';
 
 export const store = createStore<AppState>((set, get) => ({
-  instructions: `start with HN (2H)
-- do some research (5min)
-- slack off (VERY LONG 6 HOURS)`,
+  instructions: `start with Hacker News (2H)
+- Code (4h)
+- Meetings (1h)`,
   fullyAuto: true, // renamed and changed default to true
   running: false,
   error: null,
