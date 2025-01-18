@@ -195,32 +195,100 @@ export const performAction = async (action: NextAction) => {
     default:
       throw new Error(`Unsupported action: ${action.type}`);
   }
+  return '';
 };
 
 // console.log('JSON:', chatResponse.choices[0].message.content);
+
+export const getNextScreenshot = async (recordScreenDir: string, 
+                                        replayScreens: boolean,
+                                        screenFiles: string[]): Promise<string> => {
+  // Capture a screenshot or replay a recorded screenshot
+  if (replayScreens == true) {
+    // replaying screens
+    const screenFile = screenFiles.shift();
+    if (screenFile == undefined) {
+      console.log('Done with replay');
+      return '';
+    }
+    console.log('RECORDED SCREEN', screenFile);
+    return fs.readFileSync(path.join(recordScreenDir, screenFile), 'base64');
+  }
+  else {
+    console.log('TAKE SCREENSHOT');
+    const screenBase64 = await getScreenshot();
+
+    // ToDo: Check to remove hard coded configuration
+    const recordScreens = true;
+    // record screenshot as file with current time stamp in its name
+    if (recordScreens) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+      fs.writeFileSync(filePath, screenBase64, 'base64');
+      console.log('SCREEN RECORDED', filePath);
+    }
+    return screenBase64;
+  }
+};
+
+export const getRequest = async(client: Mistral, ai_prompt: string, screenBase64: string): Promise<any> => {
+  const chatResponse = await client.chat.complete({
+    model: 'pixtral-12b',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: ai_prompt,
+          },
+          {
+            type: 'image_url',
+            imageUrl: `data:image/jpeg;base64,${screenBase64}`,
+          },
+        ],
+      },
+    ],
+  });
+  return chatResponse;
+}
 
 export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
+  
+  // ToDo: replace with UI interface
+  const replayScreens = true;
+
+  let recordScreenDir = '';
+  let screenFiles: string[] = [];
+
+  
   console.log('INITIALIZING');
-
-  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
-  const recordScreens = true;
+  
   const recordScreenBaseDir = './_recorded_screens';
-
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
-
-
-
-  const client = new Mistral({ apiKey });
-
   // Create the directory for recorded screens
-  if (recordScreens) {
+  if (replayScreens == false) {
     // create subdirectory for each program launch
+
+    //const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = '2024-01-18_14-00'
+    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
     fs.mkdirSync(recordScreenDir, { recursive: true });
   }
+  else {
+    // ToDo: provide directory/time stamp (with test data)
+    const timestamp = '2024-01-18_14-00'
+
+    // create list of files in the directory
+    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
+    screenFiles = fs.readdirSync(recordScreenDir);
+  }
+
+  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz'; 
+  const client = new Mistral({ apiKey });
+
 
   console.log('START RUNNING');
 
@@ -231,131 +299,26 @@ export const runAgent = async (
     error: null,
   });
 
+  const ai_prompt = "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation."
+
   while (getState().running) {
-    console.log('TAKE SCREENSHOT');
-    const screenBase64 = await getScreenshot();
+    
+    const screenBase64 = await getNextScreenshot(recordScreenDir, replayScreens, screenFiles);
 
-    // record screenshot as file with current time stamp in its name
-    if (recordScreens) {
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
-      fs.writeFileSync(filePath, screenBase64, 'base64');
-      console.log('SCREEN RECORDED', filePath);
+    if (screenBase64 == '') {
+      // todo: proper stop of the loop with some feedback
+      break;
     }
-
     console.log('SCREEN', screenBase64.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await client.chat.complete({
-      model: 'pixtral-12b',
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation.",
-            },
-            {
-              type: 'image_url',
-              imageUrl: `data:image/jpeg;base64,${screenBase64}`,
-            },
-          ],
-        },
-      ],
-    });
+    const chatResponse = await getRequest(client, ai_prompt, screenBase64);
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    await new Promise((resolve) => {
-      setTimeout(resolve, 5000);
-    });
+    if (replayScreens == false) {
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5000);
+      });
+    }
   }
-
-  // while (getState().running) {
-  //   // Add this check at the start of the loop
-  //   if (getState().runHistory.length >= MAX_STEPS * 2) {
-  //     setState({
-  //       ...getState(),
-  //       error: 'Maximum steps exceeded',
-  //       running: false,
-  //     });
-  //     break;
-  //   }
-
-  //   try {
-  //     const message = await promptForAction(getState().runHistory);
-  //     setState({
-  //       ...getState(),
-  //       runHistory: [...getState().runHistory, message],
-  //     });
-  //     const { action, reasoning, toolId } = extractAction(
-  //       message as BetaMessage,
-  //     );
-  //     console.log('REASONING', reasoning);
-  //     console.log('ACTION', action);
-
-  //     if (action.type === 'error') {
-  //       setState({
-  //         ...getState(),
-  //         error: action.message,
-  //         running: false,
-  //       });
-  //       break;
-  //     } else if (action.type === 'finish') {
-  //       setState({
-  //         ...getState(),
-  //         running: false,
-  //       });
-  //       break;
-  //     }
-  //     if (!getState().running) {
-  //       break;
-  //     }
-
-  //     hideWindowBlock(() => performAction(action));
-
-  //     await new Promise((resolve) => setTimeout(resolve, 500));
-  //     if (!getState().running) {
-  //       break;
-  //     }
-
-  //     setState({
-  //       ...getState(),
-  //       runHistory: [
-  //         ...getState().runHistory,
-  //         {
-  //           role: 'user',
-  //           content: [
-  //             {
-  //               type: 'tool_result',
-  //               tool_use_id: toolId,
-  //               content: [
-  //                 {
-  //                   type: 'text',
-  //                   text: 'Here is a screenshot after the action was executed',
-  //                 },
-  //                 {
-  //                   type: 'image',
-  //                   source: {
-  //                     type: 'base64',
-  //                     media_type: 'image/png',
-  //                     data: await getScreenshot(),
-  //                   },
-  //                 },
-  //               ],
-  //             },
-  //           ],
-  //         },
-  //       ],
-  //     });
-  //   } catch (error: unknown) {
-  //     setState({
-  //       ...getState(),
-  //       error:
-  //         error instanceof Error ? error.message : 'An unknown error occurred',
-  //       running: false,
-  //     });
-  //     break;
-  //   }
-  // }
 };
