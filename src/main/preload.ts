@@ -31,6 +31,9 @@ const electronHandler = {
     maximize: () => ipcRenderer.invoke('maximize-window'),
     close: () => ipcRenderer.invoke('close-window'),
   },
+  resizeWindow: (width: number, height: number) => {
+    ipcRenderer.send('resize-window', width, height);
+  },
 };
 
 // Initialize Zutron bridge

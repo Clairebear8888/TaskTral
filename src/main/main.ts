@@ -8,7 +8,7 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import { app, ipcMain } from 'electron';
+import { app, ipcMain, BrowserWindow } from 'electron';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
@@ -29,6 +29,34 @@ ipcMain.on('ipc-example', async (event, arg) => {
   console.log(msgTemplate(arg));
   event.reply('ipc-example', msgTemplate('pong'));
 });
+
+let mainWindow: BrowserWindow | null = null;
+
+const createWindow = async () => {
+  mainWindow = new BrowserWindow({
+    show: false,
+    width: 400,
+    height: 200,
+    resizable: false,
+    useContentSize: true,
+    webPreferences: {
+      // ... your existing webPreferences ...
+    },
+  });
+
+  // Add the IPC handler here where we have access to mainWindow
+  ipcMain.on('resize-window', (_event, width: number, height: number) => {
+    if (mainWindow) {
+      const windowPadding = process.platform === 'darwin' ? 28 : 16;
+      mainWindow.setSize(width, height + windowPadding, true);
+      if (!mainWindow.isVisible()) {
+        mainWindow.show();
+      }
+    }
+  });
+
+  // ... rest of createWindow function ...
+};
 
 if (process.env.NODE_ENV === 'production') {
   const sourceMapSupport = require('source-map-support');
