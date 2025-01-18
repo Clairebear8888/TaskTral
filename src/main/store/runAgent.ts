@@ -1,13 +1,10 @@
-import {
-  BetaMessage,
-  BetaMessageParam,
-} from '@anthropic-ai/sdk/resources/beta/messages/messages';
+import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/messages';
 import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
+import { Mistral } from '@mistralai/mistralai';
 import { desktopCapturer, screen } from 'electron';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
-import { extractAction } from './extractAction';
 import { AppState, NextAction } from './types';
 
 const MAX_STEPS = 50;
@@ -198,10 +195,17 @@ export const performAction = async (action: NextAction) => {
   }
 };
 
+// console.log('JSON:', chatResponse.choices[0].message.content);
+
 export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
+  console.log('START RUNNING');
+
+  const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
+  const client = new Mistral({ apiKey });
+
   setState({
     ...getState(),
     running: true,
@@ -210,90 +214,121 @@ export const runAgent = async (
   });
 
   while (getState().running) {
-    // Add this check at the start of the loop
-    if (getState().runHistory.length >= MAX_STEPS * 2) {
-      setState({
-        ...getState(),
-        error: 'Maximum steps exceeded',
-        running: false,
-      });
-      break;
-    }
+    console.log('TAKE SCREENSHOT');
+    const screenBase64 = await getScreenshot();
+    console.log('SCREEN', screenBase64.slice(0, 100));
+    console.time('mistral-request');
+    const chatResponse = await client.chat.complete({
+      model: 'pixtral-12b',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation.",
+            },
+            {
+              type: 'image_url',
+              imageUrl: `data:image/jpeg;base64,${screenBase64}`,
+            },
+          ],
+        },
+      ],
+    });
+    console.timeEnd('mistral-request');
+    console.dir(chatResponse, { depth: null });
 
-    try {
-      const message = await promptForAction(getState().runHistory);
-      setState({
-        ...getState(),
-        runHistory: [...getState().runHistory, message],
-      });
-      const { action, reasoning, toolId } = extractAction(
-        message as BetaMessage,
-      );
-      console.log('REASONING', reasoning);
-      console.log('ACTION', action);
-
-      if (action.type === 'error') {
-        setState({
-          ...getState(),
-          error: action.message,
-          running: false,
-        });
-        break;
-      } else if (action.type === 'finish') {
-        setState({
-          ...getState(),
-          running: false,
-        });
-        break;
-      }
-      if (!getState().running) {
-        break;
-      }
-
-      hideWindowBlock(() => performAction(action));
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      if (!getState().running) {
-        break;
-      }
-
-      setState({
-        ...getState(),
-        runHistory: [
-          ...getState().runHistory,
-          {
-            role: 'user',
-            content: [
-              {
-                type: 'tool_result',
-                tool_use_id: toolId,
-                content: [
-                  {
-                    type: 'text',
-                    text: 'Here is a screenshot after the action was executed',
-                  },
-                  {
-                    type: 'image',
-                    source: {
-                      type: 'base64',
-                      media_type: 'image/png',
-                      data: await getScreenshot(),
-                    },
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      });
-    } catch (error: unknown) {
-      setState({
-        ...getState(),
-        error:
-          error instanceof Error ? error.message : 'An unknown error occurred',
-        running: false,
-      });
-      break;
-    }
+    await new Promise((resolve) => {
+      setTimeout(resolve, 5000);
+    });
   }
+
+  // while (getState().running) {
+  //   // Add this check at the start of the loop
+  //   if (getState().runHistory.length >= MAX_STEPS * 2) {
+  //     setState({
+  //       ...getState(),
+  //       error: 'Maximum steps exceeded',
+  //       running: false,
+  //     });
+  //     break;
+  //   }
+
+  //   try {
+  //     const message = await promptForAction(getState().runHistory);
+  //     setState({
+  //       ...getState(),
+  //       runHistory: [...getState().runHistory, message],
+  //     });
+  //     const { action, reasoning, toolId } = extractAction(
+  //       message as BetaMessage,
+  //     );
+  //     console.log('REASONING', reasoning);
+  //     console.log('ACTION', action);
+
+  //     if (action.type === 'error') {
+  //       setState({
+  //         ...getState(),
+  //         error: action.message,
+  //         running: false,
+  //       });
+  //       break;
+  //     } else if (action.type === 'finish') {
+  //       setState({
+  //         ...getState(),
+  //         running: false,
+  //       });
+  //       break;
+  //     }
+  //     if (!getState().running) {
+  //       break;
+  //     }
+
+  //     hideWindowBlock(() => performAction(action));
+
+  //     await new Promise((resolve) => setTimeout(resolve, 500));
+  //     if (!getState().running) {
+  //       break;
+  //     }
+
+  //     setState({
+  //       ...getState(),
+  //       runHistory: [
+  //         ...getState().runHistory,
+  //         {
+  //           role: 'user',
+  //           content: [
+  //             {
+  //               type: 'tool_result',
+  //               tool_use_id: toolId,
+  //               content: [
+  //                 {
+  //                   type: 'text',
+  //                   text: 'Here is a screenshot after the action was executed',
+  //                 },
+  //                 {
+  //                   type: 'image',
+  //                   source: {
+  //                     type: 'base64',
+  //                     media_type: 'image/png',
+  //                     data: await getScreenshot(),
+  //                   },
+  //                 },
+  //               ],
+  //             },
+  //           ],
+  //         },
+  //       ],
+  //     });
+  //   } catch (error: unknown) {
+  //     setState({
+  //       ...getState(),
+  //       error:
+  //         error instanceof Error ? error.message : 'An unknown error occurred',
+  //       running: false,
+  //     });
+  //     break;
+  //   }
+  // }
 };
