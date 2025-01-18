@@ -288,6 +288,8 @@ export const getRequest = async (
   For the task take one from the following list:
   ${tasks.map((t: any) => t.title).join(', ')}
 
+  If the user is not working on any of the tasks, respond with "Other".
+
   Summarize what the user is doing in this screenshot. Be very specific. Avoid generic statements like "the user is working" or "the user is coding."
   Instead, provide details such as the project they are working on, the subject of the email they are writing or reading, and to whom they are writing.
 
