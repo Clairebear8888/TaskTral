@@ -278,6 +278,53 @@ export const getTasks = async (
   return tasks;
 };
 
+
+export const postProcessData = async (
+  client: Mistral,
+  postProcessingData: CategoryResponses[],
+): Promise<any> => {
+  let msg = []
+
+  for (const category of postProcessingData) {
+    console.log('CATEGORY', category.name);
+  
+    const chatResponseTasks = await client.chat.complete({
+      responseFormat: { type: 'json_object' },
+      model: 'mistral-small-latest',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `an json formatted list containing 2 elements or less that precisely describes the listed activities that are separated with semicolon. Use as little words to describe each element as possible. Try to be as concise as possible.\
+            Example output:
+            {
+              "activities": [
+                "Writing in JavaScript in the context of a project involving tracking and tagging activities.",
+                "The user is writing a Python script."
+                ]
+                }`,
+          },
+          {
+            type: 'text',
+            text: category.summaries.join('; '), // join all summaries with a semicolon
+          },
+        ],
+      }],
+    });
+    console.log('CHAT RESPONSE', chatResponseTasks.choices?.[0]?.message?.content as string);
+ 
+  // const tasks = chatResponseTasks.choices?.[0]?.message?.content
+  //   ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+  //   : { tasks: [] } || [];
+
+  //    // write tasks to tasks.json
+  //   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+  }
+  //return tasks;
+};
+
+
 export const getRequest = async (
   client: Mistral,
   tasks: any,
@@ -477,7 +524,7 @@ export const runAgent = async (
     console.dir(chatResponse, { depth: null });
 
     postProcessingData = await appendResponseToPostProcessingData(postProcessingData, chatRsp.json);
-    
+    await postProcessData(client, postProcessingData);
 
     if (screen_data.is_screenshot == true) {
       // no more screens to replay, wait for 
