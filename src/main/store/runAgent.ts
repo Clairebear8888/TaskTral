@@ -202,12 +202,18 @@ export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
+  setState({
+    ...getState(),
+    running: true,
+    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
+    error: null,
+  });
   console.log('START RUNNING with instructions:', getState().instructions);
 
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
-  const chatResponse = await client.chat.complete({
+  const chatResponseTasks = await client.chat.complete({
     responseFormat: { type: 'json_object' },
     model: 'mistral-small-latest',
     messages: [
@@ -242,14 +248,16 @@ export const runAgent = async (
     ],
   });
 
-  console.dir(chatResponse, { depth: null });
-  return;
+  const tasks = chatResponseTasks.choices?.[0]?.message?.content
+    ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+    : { tasks: [] } || [];
+
+  // write tasks to tasks.json
+  fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
 
   setState({
     ...getState(),
-    running: true,
-    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
-    error: null,
+    tasks,
   });
 
   while (getState().running) {
@@ -259,13 +267,18 @@ export const runAgent = async (
     console.time('mistral-request');
     const chatResponse = await client.chat.complete({
       model: 'pixtral-12b',
+      responseFormat: { type: 'json_object' },
       messages: [
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
+              // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
+              text: `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
+TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
+
+Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`,
             },
             {
               type: 'image_url',

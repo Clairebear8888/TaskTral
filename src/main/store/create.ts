@@ -1,10 +1,12 @@
 import { createStore } from 'zustand/vanilla';
 import { createDispatch } from 'zutron/main';
-import { AppState } from './types';
 import { runAgent } from './runAgent';
+import { AppState } from './types';
 
 export const store = createStore<AppState>((set, get) => ({
-  instructions: 'find flights from seattle to sf for next tuesday to thursday',
+  instructions: `start with HN (2H)
+- do some research (5min)
+- slack off (VERY LONG 6 HOURS)`,
   fullyAuto: true, // renamed and changed default to true
   running: false,
   error: null,
