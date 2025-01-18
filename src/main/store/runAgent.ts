@@ -6,6 +6,8 @@ import { desktopCapturer, screen } from 'electron';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
+import fs from 'fs';
+import path from 'path';
 
 const MAX_STEPS = 50;
 
@@ -201,10 +203,26 @@ export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
-  console.log('START RUNNING');
+  console.log('INITIALIZING');
 
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
+  const recordScreens = true;
+  const recordScreenBaseDir = './_recorded_screens';
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
+
+
+
   const client = new Mistral({ apiKey });
+
+  // Create the directory for recorded screens
+  if (recordScreens) {
+    // create subdirectory for each program launch
+    fs.mkdirSync(recordScreenDir, { recursive: true });
+  }
+
+  console.log('START RUNNING');
 
   setState({
     ...getState(),
@@ -216,6 +234,15 @@ export const runAgent = async (
   while (getState().running) {
     console.log('TAKE SCREENSHOT');
     const screenBase64 = await getScreenshot();
+
+    // record screenshot as file with current time stamp in its name
+    if (recordScreens) {
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+      fs.writeFileSync(filePath, screenBase64, 'base64');
+      console.log('SCREEN RECORDED', filePath);
+    }
+
     console.log('SCREEN', screenBase64.slice(0, 100));
     console.time('mistral-request');
     const chatResponse = await client.chat.complete({
