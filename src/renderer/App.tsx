@@ -51,7 +51,7 @@ function Main() {
       {/* Title heading no longer needs drag property since parent is draggable */}
       <Box position="absolute" top={2} left={6}>
         <Heading fontFamily="Garamond, serif" fontWeight="hairline">
-          TaskTral
+          TASKTRAL AI_
         </Heading>
       </Box>
 
@@ -104,7 +104,7 @@ function Main() {
         }}
       >
         <Box alignSelf="flex-start" pl={4} fontSize="lg">
-          Good morning, Mathis
+          Good morning, Jan
         </Box>
         <Box
           as="textarea"
