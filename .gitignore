@@ -30,7 +30,6 @@ npm-debug.log.*
 
 .env
 
-_r*
-
-
 activity_log.jsonl
+
+_r*

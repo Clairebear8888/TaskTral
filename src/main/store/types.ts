@@ -19,6 +19,7 @@ export type AppState = {
   fullyAuto: boolean;
   running: boolean;
   error: string | null;
+  tasks: { title: string; timeValue: number; timeUnit: string }[];
 
   runHistory: BetaMessageParam[];
 

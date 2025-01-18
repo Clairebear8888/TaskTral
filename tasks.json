@@ -1,0 +1,17 @@
+[
+  {
+    "title": "Start with Hacker News",
+    "timeValue": 2,
+    "timeUnit": "hours"
+  },
+  {
+    "title": "Do some research",
+    "timeValue": 5,
+    "timeUnit": "minutes"
+  },
+  {
+    "title": "Slack off",
+    "timeValue": 6,
+    "timeUnit": "hours"
+  }
+]

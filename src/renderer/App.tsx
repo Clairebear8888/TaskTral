@@ -103,12 +103,15 @@ function Main() {
           },
         }}
       >
-        {/* <Box
+        <Box alignSelf="flex-start" pl={4} fontSize="lg">
+          Good morning, Mathis
+        </Box>
+        <Box
           as="textarea"
           placeholder="What can I do for you today?"
           width="100%"
           height="auto"
-          minHeight="48px"
+          minHeight="220px"
           p={4}
           borderRadius="16px"
           border="1px solid"
@@ -136,8 +139,8 @@ function Main() {
             e.target.style.height = 'auto';
             e.target.style.height = `${e.target.scrollHeight}px`;
           }}
-          onKeyDown={handleKeyDown}
-        /> */}
+          // onKeyDown={handleKeyDown}
+        />
         <HStack justify="space-between" align="center" w="100%">
           {/* <HStack spacing={2}>
             <Switch
@@ -196,7 +199,7 @@ function Main() {
               onClick={running ? () => dispatch('STOP_RUN') : startRun}
               isDisabled={!running && localInstructions?.trim() === ''}
             >
-              {running ? <FaStop /> : "Let's Go"}
+              {running ? <FaStop /> : 'Start my day'}
             </Button>
           </HStack>
         </HStack>
