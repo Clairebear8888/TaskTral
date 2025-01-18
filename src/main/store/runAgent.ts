@@ -3,6 +3,7 @@ import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
 import { Mistral } from '@mistralai/mistralai';
 import { desktopCapturer, screen } from 'electron';
+import fs from 'fs';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
@@ -226,8 +227,7 @@ export const runAgent = async (
           content: [
             {
               type: 'text',
-              text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be sure to be speicific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or which kind email they are looking at.',
-              // text: "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation.",
+              text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
             },
             {
               type: 'image_url',
@@ -239,6 +239,22 @@ export const runAgent = async (
     });
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
+
+    // Save timestamp and sentence to JSONL file
+    const timestamp = Date.now();
+    if (chatResponse.choices && chatResponse.choices.length > 0) {
+      const sentence = chatResponse.choices[0].message.content;
+      const jsonLine = `${JSON.stringify({
+        timestamp,
+        sentence,
+      })}\n`;
+
+      // Create the file if it doesn't exist
+      if (!fs.existsSync('activity_log.jsonl')) {
+        fs.writeFileSync('activity_log.jsonl', '');
+      }
+      fs.appendFileSync('activity_log.jsonl', jsonLine);
+    }
 
     await new Promise((resolve) => {
       setTimeout(resolve, 5000);
