@@ -231,11 +231,63 @@ export const getNextScreenshot = async (recordScreenDir: string,
   }
 };
 
-export const getRequest = async (client: Mistral, ai_prompt: string, instructions, screenBase64: string): Promise<any> => {
+
+export const getTasks = async(client: Mistral, instructions: string): Promise<any> => {
+
+  const chatResponseTasks = await client.chat.complete({
+    responseFormat: { type: 'json_object' },
+    model: 'mistral-small-latest',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+{
+  "tasks": [
+    {
+      "title": "Write a blog post",
+      "timeValue": 10,
+      "timeUnit": "minutes"
+    },
+    {
+      "title": "Write a blog post",
+      "timeValue": 2,
+      "timeUnit": "hours"
+    }
+  ]
+}
+`,
+          },
+          {
+            type: 'text',
+            text: instructions || '',
+          },
+        ],
+      },
+    ],
+  });
+
+  const tasks = chatResponseTasks.choices?.[0]?.message?.content
+    ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+    : { tasks: [] } || [];
+
+  // write tasks to tasks.json
+  fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+  return tasks;
+};
+
+export const getRequest = async (client: Mistral, tasks: any, screenBase64: string): Promise<any> => {
+  // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',            
+  const ai_prompt = `Given this set of TODOs and a screenshot, determine which task the user is working on. Also summarize what the user is doing in this screenshot. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.
+TODOs: ${tasks.map((t: any) => t.title).join(', ')}.
+
+Example output: { "task": "do research", "summary": "The user is writing a JavaScript file named \"runAgent.ts\" which is part of a project involving tracking and tagging activities."}`
 
   const chatResponse = await client.chat.complete({
     responseFormat: { type: 'json_object' },
-    model: 'mistral-small-latest',
+    model: 'pixtral-12b',
     messages: [
       {
         role: 'user',
@@ -245,8 +297,8 @@ export const getRequest = async (client: Mistral, ai_prompt: string, instruction
             text: ai_prompt,
           },
           {
-            type: 'text',
-            text: instructions,
+            type: 'image_url',
+            imageUrl: `data:image/jpeg;base64,${screenBase64}`,
           },
         ],
       },
@@ -254,7 +306,6 @@ export const getRequest = async (client: Mistral, ai_prompt: string, instruction
   });
 
   console.dir(chatResponse, { depth: null });
-  return;
 
 
   // Save timestamp and sentence to JSONL file
@@ -279,9 +330,15 @@ export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
+  setState({
+    ...getState(),
+    running: true,
+    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
+    error: null,
+  });
 
   // ToDo: replace with UI interface
-  const replayScreens = true;
+  const replayScreens = false;
 
   let recordScreenDir = '';
   let screenFiles: string[] = [];
@@ -314,29 +371,12 @@ export const runAgent = async (
 
   console.log('START RUNNING with instructions:', getState().instructions);
 
+  let tasks = await getTasks(client, getState().instructions || '');
   setState({
     ...getState(),
-    running: true,
-    runHistory: [{ role: 'user', content: getState().instructions ?? '' }],
-    error: null,
+    tasks,
   });
 
-  const ai_prompt = `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
-{
-  "tasks": [
-    {
-      "title": "Write a blog post",
-      "timeValue": 10,
-      "timeUnit": "minutes"
-    },
-    {
-      "title": "Write a blog post",
-      "timeValue": 2,
-      "timeUnit": "hours"
-    }
-  ]
-}
-`;
   while (getState().running) {
 
     const screenBase64 = await getNextScreenshot(recordScreenDir, replayScreens, screenFiles);
@@ -347,7 +387,7 @@ export const runAgent = async (
     }
     console.log('SCREEN', screenBase64.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await getRequest(client, ai_prompt, getState().instructions || '', screenBase64);
+    const chatResponse = await getRequest(client, tasks, screenBase64);
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
