@@ -202,10 +202,48 @@ export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
 ) => {
-  console.log('START RUNNING');
+  console.log('START RUNNING with instructions:', getState().instructions);
 
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
+
+  const chatResponse = await client.chat.complete({
+    responseFormat: { type: 'json_object' },
+    model: 'mistral-small-latest',
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+{
+  "tasks": [
+    {
+      "title": "Write a blog post",
+      "timeValue": 10,
+      "timeUnit": "minutes"
+    },
+    {
+      "title": "Write a blog post",
+      "timeValue": 2,
+      "timeUnit": "hours"
+    }
+  ]
+}
+`,
+          },
+          {
+            type: 'text',
+            text: getState().instructions || '',
+          },
+        ],
+      },
+    ],
+  });
+
+  console.dir(chatResponse, { depth: null });
+  return;
 
   setState({
     ...getState(),
