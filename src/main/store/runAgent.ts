@@ -204,32 +204,27 @@ export const getNextScreenshot = async (
   recordScreenDir: string,
   replayScreens: boolean,
   screenFiles: string[],
-): Promise<string> => {
+): Promise<{image: string, is_screenshot: boolean}> => {
   // Capture a screenshot or replay a recorded screenshot
-  if (replayScreens == true) {
+
+  if (screenFiles.length > 0) {
     // replaying screens
     const screenFile = screenFiles.shift();
     if (screenFile == undefined) {
-      console.log('Done with replay');
-      return '';
+      throw new Error(`List size > 0, but shift failed`);
     }
     console.log('RECORDED SCREEN', screenFile);
-    return fs.readFileSync(path.join(recordScreenDir, screenFile), 'base64');
+    return {image:fs.readFileSync(screenFile, 'base64'), is_screenshot:false};
   }
 
   console.log('TAKE SCREENSHOT');
   const screenBase64 = await getScreenshot();
 
-  // ToDo: Check to remove hard coded configuration
-  const recordScreens = true;
-  // record screenshot as file with current time stamp in its name
-  if (recordScreens) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
-    fs.writeFileSync(filePath, screenBase64, 'base64');
-    console.log('SCREEN RECORDED', filePath);
-  }
-  return screenBase64;
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+  fs.writeFileSync(filePath, screenBase64, 'base64');
+  console.log('SCREEN RECORDED', filePath);
+  return {image:screenBase64, is_screenshot:true};
 };
 
 export const getTasks = async (
@@ -344,6 +339,28 @@ export const getRequest = async (
   return chatResponse;
 };
 
+export const readRecordedScreens = async (recordScreenBase: string): Promise<string[]> => {
+  let screenFiles: string[] = [];
+  let directories = fs.readdirSync(recordScreenBase, {withFileTypes: true, recursive: false});
+  while (directories.length > 0) {
+    const dir = directories.shift();
+    if (dir == undefined) {
+      break;
+    }
+    if (dir.isDirectory()) {
+      console.log('READING RECORD DIR', dir.name);
+      const files = fs.readdirSync(path.join(recordScreenBase, dir.name));
+      const filteredFiles = files.filter((f) => f.endsWith('.png'));
+      if (filteredFiles.length > 0) {
+        const pathFiles = filteredFiles.map((f) => path.join(recordScreenBase, dir.name, f));
+        console.log('found files: #', pathFiles.length);
+        screenFiles = screenFiles.concat(pathFiles);
+      }
+    }
+  }
+  return screenFiles
+}
+
 export const runAgent = async (
   setState: (state: AppState) => void,
   getState: () => AppState,
@@ -356,7 +373,7 @@ export const runAgent = async (
   });
 
   // ToDo: replace with UI interface
-  const replayScreens = false;
+  const replayScreens = true;
 
   let recordScreenDir = '';
   let screenFiles: string[] = [];
@@ -365,22 +382,16 @@ export const runAgent = async (
 
   const recordScreenBaseDir = './_recorded_screens';
   // Create the directory for recorded screens
-  if (replayScreens == false) {
+  if (replayScreens == true) {
     // create subdirectory for each program launch
-
-    // const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const timestamp = '2024-01-18_14-00';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
     fs.mkdirSync(recordScreenDir, { recursive: true });
-  } else {
-    // ToDo: provide directory/time stamp (with test data)
-    const timestamp = '2024-01-18_14-00';
-
-    // create list of files in the directory
-    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
-    screenFiles = fs.readdirSync(recordScreenDir);
+    // load all recorded screens (there might be some old ones laying around - load them all)
+    screenFiles = await readRecordedScreens(recordScreenBaseDir);
+    console.log('RECORDED SCREENS', screenFiles);
   }
-
+  
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
@@ -393,23 +404,20 @@ export const runAgent = async (
   });
 
   while (getState().running) {
-    const screenBase64 = await getNextScreenshot(
+    const screen_data = await getNextScreenshot(
       recordScreenDir,
       replayScreens,
       screenFiles,
     );
 
-    if (screenBase64 == '') {
-      // todo: proper stop of the loop with some feedback
-      break;
-    }
-    console.log('SCREEN', screenBase64.slice(0, 100));
+    console.log('SCREEN', screen_data.image.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await getRequest(client, tasks, screenBase64);
+    const chatResponse = await getRequest(client, tasks, screen_data.image);
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    if (replayScreens == false) {
+    if (screen_data.is_screenshot == true) {
+      // no more screens to replay, wait for 
       await new Promise((resolve) => {
         setTimeout(resolve, 5000);
       });
