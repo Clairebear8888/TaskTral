@@ -226,7 +226,8 @@ export const runAgent = async (
           content: [
             {
               type: 'text',
-              text: "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation.",
+              text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be sure to be speicific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or which kind email they are looking at.',
+              // text: "Tell me whether the user is doing work or slacking off. Just reply with 'work' or 'no-work', no other explanation.",
             },
             {
               type: 'image_url',
