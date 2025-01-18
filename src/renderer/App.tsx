@@ -9,8 +9,8 @@ import {
   extendTheme,
   useToast,
 } from '@chakra-ui/react';
+import { Mistral } from '@mistralai/mistralai';
 import React from 'react';
-import { FaStop, FaTrash } from 'react-icons/fa';
 import { HiMinus, HiX } from 'react-icons/hi';
 import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
 import { useDispatch } from 'zutron';
@@ -27,15 +27,57 @@ function Main() {
     runHistory,
   } = useStore();
   // Add local state for instructions
+
   const [localInstructions, setLocalInstructions] = React.useState(
     savedInstructions ?? '',
   );
   const toast = useToast(); // Add toast hook
 
+  const [isInputMode, setIsInputMode] = React.useState(true);
+
   const startRun = () => {
     // Update Zustand state before starting the run
     dispatch({ type: 'SET_INSTRUCTIONS', payload: localInstructions });
     dispatch({ type: 'RUN_AGENT', payload: null });
+  };
+
+  const parseInput = async () => {
+    const client = new Mistral({ apiKey: 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz' });
+    const chatResponseTasks = await client.chat.complete({
+      responseFormat: { type: 'json_object' },
+      model: 'mistral-small-latest',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+  {
+    "tasks": [
+      {
+        "title": "Write a blog post",
+        "timeValue": 10,
+        "timeUnit": "minutes"
+      },
+      {
+        "title": "Write a blog post",
+        "timeValue": 2,
+        "timeUnit": "hours"
+      }
+    ]
+  }
+  `,
+            },
+            {
+              type: 'text',
+              text: localInstructions || '',
+            },
+          ],
+        },
+      ],
+    });
+    console.log({ chatResponseTasks });
   };
 
   return (
@@ -178,7 +220,7 @@ function Main() {
                 onClick={() => dispatch('CLEAR_HISTORY')}
                 aria-label="Clear history"
               >
-                <FaTrash />
+                Stop
               </Button>
             )}
             <Button
@@ -196,10 +238,17 @@ function Main() {
               borderRadius="12px"
               border="1px solid"
               borderColor="blackAlpha.200"
-              onClick={running ? () => dispatch('STOP_RUN') : startRun}
+              onClick={() => {
+                parseInput();
+                if (isInputMode) {
+                  setIsInputMode(false);
+                } else {
+                  startRun();
+                }
+              }}
               isDisabled={!running && localInstructions?.trim() === ''}
             >
-              {running ? <FaStop /> : 'Start my day'}
+              {isInputMode ? 'OK' : 'Start my day'}
             </Button>
           </HStack>
         </HStack>
