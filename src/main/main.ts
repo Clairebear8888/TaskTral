@@ -77,6 +77,7 @@ function createChromelessWindow() {
     resizable: false,
     x: 50,
     y: 50,
+    opacity: 0,
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

@@ -16,6 +16,14 @@ interface CategoryResponses {
   summaries: string[];
 }
 
+interface Task {
+  title: string;
+  timeValue: number;
+  timeUnit: string;
+  color?: string;
+  progress?: number;
+}
+
 function getScreenDimensions(): { width: number; height: number } {
   const primaryDisplay = screen.getPrimaryDisplay();
   return primaryDisplay.size;
@@ -508,6 +516,9 @@ export const runAgent = async (
     error: null,
   });
 
+  // wait for 3 seconds
+  await new Promise((resolve) => setTimeout(resolve, 3000));
+
   // ToDo: replace with UI interface
   const replayScreens = false;
 
@@ -546,17 +557,18 @@ export const runAgent = async (
 
   // define an array of categories which have a name and a list of tasks. Name the array 'postProcessingData'
   let postProcessingData: CategoryResponses[] = [];
+  let firstCategoryRecognized = false;
 
   while (getState().running) {
-    const screen_data = await getNextScreenshot(
+    const screenData = await getNextScreenshot(
       recordScreenDir,
       replayScreens,
       screenFiles,
     );
 
-    console.log('SCREEN', screen_data.image.slice(0, 100));
+    console.log('SCREEN', screenData.image.slice(0, 100));
     console.time('mistral-request');
-    const chatRsp = await getRequest(client, tasks, screen_data.image);
+    const chatRsp = await getRequest(client, tasks, screenData.image);
     const chatResponse = chatRsp.response;
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
@@ -565,7 +577,14 @@ export const runAgent = async (
     BrowserWindow.getAllWindows().forEach((window) => {
       if (window.getTitle() === 'Chromeless Window') {
         // Find the matching task to get its color and progress
-        const task = tasks.find((t) => t.title === chatRsp.json.task);
+        const task = tasks.find((t: Task) => t.title === chatRsp.json.task);
+
+        // Make window visible after first category recognition
+        if (!firstCategoryRecognized && chatRsp.json.task) {
+          firstCategoryRecognized = true;
+          window.setOpacity(1);
+        }
+
         window.webContents.send('category-update', {
           name: chatRsp.json.task,
           color: task?.color || '#607D8B',
@@ -580,7 +599,7 @@ export const runAgent = async (
     );
     await postProcessData(client, postProcessingData);
 
-    if (screen_data.is_screenshot == true) {
+    if (screenData.is_screenshot === true) {
       // no more screens to replay, wait for
       await new Promise((resolve) => {
         setTimeout(resolve, 5000);

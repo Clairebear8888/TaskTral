@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   Heading,
   HStack,
   List,
@@ -126,7 +125,9 @@ export function Stats({ onCancel }: StatsProps) {
     <Box p={4} position="relative">
       {/* Navigation */}
       <HStack justify="space-between" mb={8}>
-        <Text color="gray.400">{'< Previous'}</Text>
+        <Text color="gray.400" onClick={onCancel} cursor="pointer">
+          {'< Previous'}
+        </Text>
         <Text
           color="gray.400"
           sx={{
@@ -232,18 +233,6 @@ export function Stats({ onCancel }: StatsProps) {
           </Text>
         </VStack>
       </HStack>
-
-      {/* Back button (formerly Cancel) */}
-      <Button
-        position="absolute"
-        bottom={4}
-        left={4}
-        size="sm"
-        variant="ghost"
-        onClick={onCancel}
-      >
-        Back
-      </Button>
     </Box>
   );
 }

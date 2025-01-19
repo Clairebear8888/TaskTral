@@ -315,7 +315,10 @@ function Main() {
               borderRadius="12px"
               border="1px solid"
               borderColor="blackAlpha.200"
-              onClick={() => setIsStatsMode(!isStatsMode)}
+              onClick={() => {
+                setIsStatsMode(!isStatsMode);
+                dispatch({ type: 'STOP_RUN', payload: null });
+              }}
             >
               Stats
             </Button>
