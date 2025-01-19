@@ -14,12 +14,18 @@ I wanted to see how good Claude's new [computer use](https://www.anthropic.com/n
 
 ### Getting started
 
-1.  `git clone https://github.com/corbt/agent.exe`
-2.  `cd agent.exe`
-3.  `npm install`
-4.  Rename `.env.example` --> `.env` and add your Anthropic API Key
-5.  `npm start`
-6.  Prompt the model to do something interesting on your computer!
+```
+git clone https://github.com/MiroLiebschner/tasktral
+cd tasktral
+npm install
+npm start
+```
+
+-  `git clone https://github.com/MiroLiebschner/TaskTral`
+-  `cd agent.exe`
+-  `npm install`
+-  Rename `.env.example` --> `.env` and add your Mistral AI API Key
+-  `npm start`
 
 ### Supported systems
 

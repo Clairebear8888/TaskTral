@@ -8,6 +8,7 @@ import path from 'path';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
+import { json } from 'stream/consumers';
 
 const MAX_STEPS = 50;
 
@@ -204,32 +205,27 @@ export const getNextScreenshot = async (
   recordScreenDir: string,
   replayScreens: boolean,
   screenFiles: string[],
-): Promise<string> => {
+): Promise<{image: string, is_screenshot: boolean}> => {
   // Capture a screenshot or replay a recorded screenshot
-  if (replayScreens == true) {
+
+  if (screenFiles.length > 0) {
     // replaying screens
     const screenFile = screenFiles.shift();
     if (screenFile == undefined) {
-      console.log('Done with replay');
-      return '';
+      throw new Error(`List size > 0, but shift failed`);
     }
     console.log('RECORDED SCREEN', screenFile);
-    return fs.readFileSync(path.join(recordScreenDir, screenFile), 'base64');
+    return {image:fs.readFileSync(screenFile, 'base64'), is_screenshot:false};
   }
 
   console.log('TAKE SCREENSHOT');
   const screenBase64 = await getScreenshot();
 
-  // ToDo: Check to remove hard coded configuration
-  const recordScreens = true;
-  // record screenshot as file with current time stamp in its name
-  if (recordScreens) {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
-    fs.writeFileSync(filePath, screenBase64, 'base64');
-    console.log('SCREEN RECORDED', filePath);
-  }
-  return screenBase64;
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
+  fs.writeFileSync(filePath, screenBase64, 'base64');
+  console.log('SCREEN RECORDED', filePath);
+  return {image:screenBase64, is_screenshot:true};
 };
 
 export const getTasks = async (
@@ -282,16 +278,68 @@ export const getTasks = async (
   return tasks;
 };
 
+
+export const postProcessData = async (
+  client: Mistral,
+  postProcessingData: CategoryResponses[],
+): Promise<any> => {
+  let msg = []
+
+  for (const category of postProcessingData) {
+    console.log('CATEGORY', category.name);
+  
+    const chatResponseTasks = await client.chat.complete({
+      responseFormat: { type: 'json_object' },
+      model: 'mistral-small-latest',
+      messages: [{
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: `an json formatted list containing 2 elements or less that precisely describes the listed activities that are separated with semicolon. Use as little words to describe each element as possible. Try to be as concise as possible.\
+            Example output:
+            {
+              "activities": [
+                "Writing in JavaScript in the context of a project involving tracking and tagging activities.",
+                "The user is writing a Python script."
+                ]
+                }`,
+          },
+          {
+            type: 'text',
+            text: category.summaries.join('; '), // join all summaries with a semicolon
+          },
+        ],
+      }],
+    });
+    console.log('CHAT RESPONSE', chatResponseTasks.choices?.[0]?.message?.content as string);
+ 
+  // const tasks = chatResponseTasks.choices?.[0]?.message?.content
+  //   ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+  //   : { tasks: [] } || [];
+
+  //    // write tasks to tasks.json
+  //   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+  }
+  //return tasks;
+};
+
+
 export const getRequest = async (
   client: Mistral,
   tasks: any,
   screenBase64: string,
-): Promise<any> => {
+): Promise<{response: any, json: {
+  task: string,
+  summary: string
+}}> => {
   // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
   const ai_prompt = `Given this set of Tasks and a screenshot, determine which task the user is working on.
 
   For the task take one from the following list:
   ${tasks.map((t: any) => t.title).join(', ')}
+
+  If the user is not working on any of the tasks, respond with "Other".
 
   Summarize what the user is doing in this screenshot. Be very specific. Avoid generic statements like "the user is working" or "the user is coding."
   Instead, provide details such as the project they are working on, the subject of the email they are writing or reading, and to whom they are writing.
@@ -303,6 +351,8 @@ export const getRequest = async (
     "task": "Research",
     "summary": "The user is writing a JavaScript file named 'runAgent.ts', which is part of a project involving tracking and tagging activities."
   }`;
+
+  let jsonLine = '';
 
   const chatResponse = await client.chat.complete({
     responseFormat: { type: 'json_object' },
@@ -330,7 +380,7 @@ export const getRequest = async (
   const timestamp = Date.now();
   if (chatResponse.choices && chatResponse.choices.length > 0) {
     const sentence = chatResponse.choices[0].message.content;
-    const jsonLine = `${JSON.stringify({
+    jsonLine = `${JSON.stringify({
       timestamp,
       sentence,
     })}\n`;
@@ -340,9 +390,76 @@ export const getRequest = async (
       fs.writeFileSync('activity_log.jsonl', '');
     }
     fs.appendFileSync('activity_log.jsonl', jsonLine);
+    if (typeof(sentence) == 'string') {
+      let task = JSON.parse(sentence).task;
+      let summary = JSON.parse(sentence).summary;
+      return {response: chatResponse, json: {task: task, summary: summary}};
+    }
   }
-  return chatResponse;
+  return {response: chatResponse, json: {task: '', summary: ''}};
 };
+
+export const readRecordedScreens = async (recordScreenBase: string): Promise<string[]> => {
+  let screenFiles: string[] = [];
+  let directories = fs.readdirSync(recordScreenBase, {withFileTypes: true, recursive: false});
+  while (directories.length > 0) {
+    const dir = directories.shift();
+    if (dir == undefined) {
+      break;
+    }
+    if (dir.isDirectory()) {
+      console.log('READING RECORD DIR', dir.name);
+      const files = fs.readdirSync(path.join(recordScreenBase, dir.name));
+      const filteredFiles = files.filter((f) => f.endsWith('.png'));
+      if (filteredFiles.length > 0) {
+        const pathFiles = filteredFiles.map((f) => path.join(recordScreenBase, dir.name, f));
+        console.log('found files: #', pathFiles.length);
+        screenFiles = screenFiles.concat(pathFiles);
+      }
+    }
+  }
+  return screenFiles
+}
+
+interface CategoryResponses {
+  name: string;
+  summaries: string[];
+}
+
+
+export const appendResponseToPostProcessingData = async (postProcessingData: CategoryResponses[], content: {
+  task: string,
+  summary: string
+}): Promise<CategoryResponses[]> => {
+
+    // load string with json content in a variable
+    console.log('CONTENT', content);
+    if (content.task != '')
+    {
+      // add the content to the postProcessingData array
+      let found = false;
+      for (const category of postProcessingData) {
+        if (category.name == content.task) {
+          console.log('ADDING NEW TASK TO CATEGORY', content.task);
+          category.summaries.push(content.summary);
+          found = true;
+          break;
+        }
+      }
+      if (found == false) {
+        console.log('ADDING NEW CATEGORY', content.task);
+        postProcessingData.push({
+          name: content.task,
+          summaries: [content.summary]
+        });
+      }
+      console.log('POST PROCESSING DATA', postProcessingData);
+    }
+    else {
+      console.log('NO TASK FOUND - CANNOT BE ASSIGNED TO CATEGORY');
+    }
+    return postProcessingData;
+  }
 
 export const runAgent = async (
   setState: (state: AppState) => void,
@@ -356,7 +473,7 @@ export const runAgent = async (
   });
 
   // ToDo: replace with UI interface
-  const replayScreens = false;
+  const replayScreens = true;
 
   let recordScreenDir = '';
   let screenFiles: string[] = [];
@@ -365,51 +482,52 @@ export const runAgent = async (
 
   const recordScreenBaseDir = './_recorded_screens';
   // Create the directory for recorded screens
-  if (replayScreens == false) {
+  if (replayScreens == true) {
     // create subdirectory for each program launch
-
-    // const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const timestamp = '2024-01-18_14-00';
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
     fs.mkdirSync(recordScreenDir, { recursive: true });
-  } else {
-    // ToDo: provide directory/time stamp (with test data)
-    const timestamp = '2024-01-18_14-00';
-
-    // create list of files in the directory
-    recordScreenDir = path.join(recordScreenBaseDir, `${timestamp}`);
-    screenFiles = fs.readdirSync(recordScreenDir);
+    // load all recorded screens (there might be some old ones laying around - load them all)
+    screenFiles = await readRecordedScreens(recordScreenBaseDir);
+    console.log('RECORDED SCREENS', screenFiles);
   }
-
+  
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
   console.log('START RUNNING with instructions:', getState().instructions);
 
+  console.log('GET TASKS', getState().instructions || '');
   const tasks = await getTasks(client, getState().instructions || '');
   setState({
     ...getState(),
     tasks,
   });
 
+  console.log('TASKS', tasks);
+
+  //define an array of categories which have a name and a list of tasks. Name the array 'postProcessingData'
+  let postProcessingData : CategoryResponses[]= [];
+
   while (getState().running) {
-    const screenBase64 = await getNextScreenshot(
+    const screen_data = await getNextScreenshot(
       recordScreenDir,
       replayScreens,
       screenFiles,
     );
 
-    if (screenBase64 == '') {
-      // todo: proper stop of the loop with some feedback
-      break;
-    }
-    console.log('SCREEN', screenBase64.slice(0, 100));
+    console.log('SCREEN', screen_data.image.slice(0, 100));
     console.time('mistral-request');
-    const chatResponse = await getRequest(client, tasks, screenBase64);
+    const chatRsp = await getRequest(client, tasks, screen_data.image);
+    const chatResponse = chatRsp.response;
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    if (replayScreens == false) {
+    postProcessingData = await appendResponseToPostProcessingData(postProcessingData, chatRsp.json);
+    await postProcessData(client, postProcessingData);
+
+    if (screen_data.is_screenshot == true) {
+      // no more screens to replay, wait for 
       await new Promise((resolve) => {
         setTimeout(resolve, 5000);
       });
