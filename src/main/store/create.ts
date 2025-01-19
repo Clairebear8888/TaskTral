@@ -7,7 +7,8 @@ export const store = createStore<AppState>((set, get) => ({
   instructions: `- Hacker News (2H)
 - Meetings (Standup , Retro) 1h
 - Try mistral API in python CLI (2h)
-- Ticket #26  typescript refactoring of postprocessor (4h) `,
+- Ticket #26  typescript refactoring of postprocessor (4h)
+- Other`,
   fullyAuto: true, // renamed and changed default to true
   running: false,
   error: null,
