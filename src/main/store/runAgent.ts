@@ -46,23 +46,45 @@ const getScreenshot = async (): Promise<string> => {
   const { width, height } = primaryDisplay.size;
   const aiDimensions = getAiScaledScreenDimensions();
 
-  return hideWindowBlock(async () => {
-    const sources = await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width, height },
-    });
-    const primarySource = sources[0]; // Assuming the first source is the primary display
+  // Find chromeless window and temporarily make it transparent
+  const chromelessWindow = BrowserWindow.getAllWindows().find(
+    (window) => window.getTitle() === 'Chromeless Window',
+  );
+  console.log('CHROMELESS WINDOW', chromelessWindow);
+  const originalOpacity = chromelessWindow?.getOpacity() || 1;
 
-    if (primarySource) {
-      const screenshot = primarySource.thumbnail;
-      // Resize the screenshot to AI dimensions
-      const resizedScreenshot = screenshot.resize(aiDimensions);
-      // Convert the resized screenshot to a base64-encoded PNG
-      const base64Image = resizedScreenshot.toPNG().toString('base64');
-      return base64Image;
+  if (chromelessWindow) {
+    chromelessWindow.setOpacity(0);
+    // Longer delay to ensure the window is fully hidden
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  try {
+    return await hideWindowBlock(async () => {
+      const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width, height },
+      });
+      const primarySource = sources[0]; // Assuming the first source is the primary display
+
+      if (primarySource) {
+        const screenshot = primarySource.thumbnail;
+        // Resize the screenshot to AI dimensions
+        const resizedScreenshot = screenshot.resize(aiDimensions);
+        // Convert the resized screenshot to a base64-encoded PNG
+        const base64Image = resizedScreenshot.toPNG().toString('base64');
+        return base64Image;
+      }
+      throw new Error('No display found for screenshot');
+    });
+  } finally {
+    // Restore chromeless window opacity after screenshot
+    if (chromelessWindow) {
+      // Longer delay before showing to ensure screenshot is complete
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      chromelessWindow.setOpacity(originalOpacity);
     }
-    throw new Error('No display found for screenshot');
-  });
+  }
 };
 
 const mapToAiSpace = (x: number, y: number) => {
@@ -487,7 +509,7 @@ export const runAgent = async (
   });
 
   // ToDo: replace with UI interface
-  const replayScreens = true;
+  const replayScreens = false;
 
   let recordScreenDir = '';
   let screenFiles: string[] = [];
@@ -542,12 +564,12 @@ export const runAgent = async (
     // Send category update to chromeless window
     BrowserWindow.getAllWindows().forEach((window) => {
       if (window.getTitle() === 'Chromeless Window') {
-        // Find the matching task to get its color
-        const taskColor =
-          tasks.find((t) => t.title === chatRsp.json.task)?.color || '#607D8B';
+        // Find the matching task to get its color and progress
+        const task = tasks.find((t) => t.title === chatRsp.json.task);
         window.webContents.send('category-update', {
           name: chatRsp.json.task,
-          color: taskColor,
+          color: task?.color || '#607D8B',
+          progress: task?.progress || 0,
         });
       }
     });

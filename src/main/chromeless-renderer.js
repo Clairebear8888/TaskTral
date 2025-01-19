@@ -1,16 +1,12 @@
 document.addEventListener('DOMContentLoaded', () => {
   console.log('DOM Content Loaded');
 
-  const statusText = document.getElementById('status-text');
   const categoryText = document.getElementById('category-text');
-  if (!statusText || !categoryText) {
-    console.error('Could not find required elements');
-    return;
-  }
-
   const progressBar = document.getElementById('progress-bar');
-  if (!progressBar) {
-    console.error('Could not find progress-bar element');
+  const progressText = document.getElementById('progress-text');
+
+  if (!categoryText || !progressBar || !progressText) {
+    console.error('Could not find required elements');
     return;
   }
 
@@ -20,30 +16,11 @@ document.addEventListener('DOMContentLoaded', () => {
       console.log('Category update received:', category);
       categoryText.textContent = category.name || 'No Category';
       document.body.style.background = category.color;
+
+      // Update progress
+      const progress = category.progress || 0;
+      progressBar.style.width = `${Math.round(progress)}%`;
+      progressText.textContent = `${Math.round(progress)}%`;
     });
   }
-
-  let progress = 0;
-  const updateProgress = () => {
-    try {
-      progress += 10;
-      progressBar.style.width = `${progress}%`;
-      statusText.textContent = `Progress: ${progress}%`;
-
-      if (progress < 100) {
-        setTimeout(updateProgress, 500);
-      } else {
-        statusText.textContent = 'Completed!';
-      }
-
-      // Send progress to main process
-      if (window.electron) {
-        window.electron.sendProgressUpdate(progress);
-      }
-    } catch (error) {
-      console.error('Error updating progress:', error);
-    }
-  };
-
-  updateProgress();
 });

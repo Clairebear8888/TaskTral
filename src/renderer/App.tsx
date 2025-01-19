@@ -46,7 +46,7 @@ function Main() {
 
   const parseInput = async () => {
     // Predefined colors for up to 5 tasks
-    const taskColors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF'];
+    const taskColors = ['#FF0000', '#006600', '#0000FF', '#FF00FF', '#00FFFF'];
 
     const client = new Mistral({ apiKey: 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz' });
     console.log('Start parse input');
@@ -96,6 +96,7 @@ function Main() {
     const tasksWithColors = parsedTasks.map((task: any, index: number) => ({
       ...task,
       color: taskColors[index],
+      progress: index * 26.4 + Math.random() * 10,
     }));
 
     setTasks(tasksWithColors);

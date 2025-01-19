@@ -69,8 +69,8 @@ function createChromelessWindow() {
   console.log('Loading HTML from:', htmlPath);
 
   const chromelessWindow = new BrowserWindow({
-    width: 400,
-    height: 300,
+    width: 300,
+    height: 100,
     frame: false,
     alwaysOnTop: true,
     transparent: true,
@@ -90,7 +90,7 @@ function createChromelessWindow() {
   });
 
   // Enable DevTools for debugging
-  chromelessWindow.webContents.openDevTools({ mode: 'detach' });
+  // chromelessWindow.webContents.openDevTools({ mode: 'detach' });
 
   // Log window lifecycle events
   chromelessWindow.webContents.on('did-finish-load', () => {
