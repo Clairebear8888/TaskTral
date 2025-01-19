@@ -18,6 +18,7 @@ import { useStore } from './hooks/useStore';
 import { RunHistory } from './RunHistory';
 
 function Main() {
+  console.log('MAIN STARTING UP');
   const dispatch = useDispatch(window.zutron);
   const {
     instructions: savedInstructions,
@@ -35,6 +36,8 @@ function Main() {
 
   const [isInputMode, setIsInputMode] = React.useState(true);
 
+  const [tasks, setTasks] = React.useState();
+
   const startRun = () => {
     // Update Zustand state before starting the run
     dispatch({ type: 'SET_INSTRUCTIONS', payload: localInstructions });
@@ -42,7 +45,11 @@ function Main() {
   };
 
   const parseInput = async () => {
+    // Predefined colors for up to 5 tasks
+    const taskColors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF'];
+
     const client = new Mistral({ apiKey: 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz' });
+    console.log('Start parse input');
     const chatResponseTasks = await client.chat.complete({
       responseFormat: { type: 'json_object' },
       model: 'mistral-small-latest',
@@ -77,7 +84,26 @@ function Main() {
         },
       ],
     });
-    console.log({ chatResponseTasks });
+
+    const parsedTasks = chatResponseTasks.choices?.[0]?.message?.content
+      ? JSON.parse(chatResponseTasks.choices[0].message.content as string)
+          ?.tasks
+      : { tasks: [] } || [];
+
+    console.log({ parsedTasks });
+
+    // Add colors to tasks
+    const tasksWithColors = parsedTasks.map((task: any, index: number) => ({
+      ...task,
+      color: taskColors[index],
+    }));
+
+    setTasks(tasksWithColors);
+
+    // write tasks to tasks.json
+    // fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+
+    console.log({ tasks: tasksWithColors });
   };
 
   return (
@@ -148,41 +174,55 @@ function Main() {
         <Box alignSelf="flex-start" pl={4} fontSize="lg">
           Good morning, Jan
         </Box>
-        <Box
-          as="textarea"
-          placeholder="What can I do for you today?"
-          width="100%"
-          height="auto"
-          minHeight="220px"
-          p={4}
-          borderRadius="16px"
-          border="1px solid"
-          borderColor="rgba(112, 107, 87, 0.5)"
-          verticalAlign="top"
-          resize="none"
-          overflow="hidden"
-          sx={{
-            '-webkit-app-region': 'no-drag',
-            transition: 'box-shadow 0.2s, border-color 0.2s',
-            _hover: {
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
-            },
-            _focus: {
-              borderColor: 'blackAlpha.500',
-              outline: 'none',
-              boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-            },
-          }}
-          value={localInstructions}
-          disabled={running}
-          onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
-            setLocalInstructions(e.target.value);
-            // Auto-adjust height
-            e.target.style.height = 'auto';
-            e.target.style.height = `${e.target.scrollHeight}px`;
-          }}
-          // onKeyDown={handleKeyDown}
-        />
+        {!tasks && (
+          <Box
+            as="textarea"
+            placeholder="What can I do for you today?"
+            width="100%"
+            height="auto"
+            minHeight="220px"
+            p={4}
+            borderRadius="16px"
+            border="1px solid"
+            borderColor="rgba(112, 107, 87, 0.5)"
+            verticalAlign="top"
+            resize="none"
+            overflow="hidden"
+            sx={{
+              '-webkit-app-region': 'no-drag',
+              transition: 'box-shadow 0.2s, border-color 0.2s',
+              _hover: {
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.05)',
+              },
+              _focus: {
+                borderColor: 'blackAlpha.500',
+                outline: 'none',
+                boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+              },
+            }}
+            value={localInstructions}
+            disabled={running}
+            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+              setLocalInstructions(e.target.value);
+              // Auto-adjust height
+              e.target.style.height = 'auto';
+              e.target.style.height = `${e.target.scrollHeight}px`;
+            }}
+            // onKeyDown={handleKeyDown}
+          />
+        )}
+        {tasks && (
+          <VStack w="100%" spacing={3} align="flex-start" pl={4}>
+            {(tasks as any).map((task: any) => (
+              <HStack key={task.title} spacing={3}>
+                <Box w="12px" h="12px" borderRadius="3px" bg={task.color} />
+                <Box>
+                  ({task.timeValue} {task.timeUnit}) {task.title}
+                </Box>
+              </HStack>
+            ))}
+          </VStack>
+        )}
         <HStack justify="space-between" align="center" w="100%">
           {/* <HStack spacing={2}>
             <Switch
@@ -239,9 +279,9 @@ function Main() {
               border="1px solid"
               borderColor="blackAlpha.200"
               onClick={() => {
-                parseInput();
                 if (isInputMode) {
                   setIsInputMode(false);
+                  parseInput();
                 } else {
                   startRun();
                 }
