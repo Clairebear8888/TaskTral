@@ -23,22 +23,91 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
+import { data as demoData } from './demo/data';
 
-const data = [
-  { hour: '8', focused: 40, distracted: 35, away: 25 },
-  { hour: '9', focused: 42, distracted: 33, away: 25 },
-  { hour: '10', focused: 52, distracted: 30, away: 18 },
-  { hour: '11', focused: 58, distracted: 27, away: 15 },
-  { hour: '12', focused: 55, distracted: 28, away: 17 },
-  { hour: '13', focused: 53, distracted: 29, away: 18 },
-  { hour: '14', focused: 50, distracted: 30, away: 20 },
-  { hour: '15', focused: 48, distracted: 32, away: 20 },
-  { hour: '16', focused: 45, distracted: 35, away: 20 },
-  { hour: '17', focused: 42, distracted: 38, away: 20 },
-  { hour: '18', focused: 40, distracted: 35, away: 25 },
-  { hour: '19', focused: 38, distracted: 37, away: 25 },
-  { hour: '20', focused: 35, distracted: 40, away: 25 },
+// Get unique categories and assign colors
+const COLORS = [
+  '#4CAF50',
+  '#2196F3',
+  '#FFC107',
+  '#FF5722',
+  '#9C27B0',
+  '#795548',
+  '#607D8B',
 ];
+const uniqueCategories = [...new Set(demoData.map((entry) => entry.category))];
+const categoryColors = Object.fromEntries(
+  uniqueCategories.map((category, index) => [
+    category,
+    COLORS[index % COLORS.length],
+  ]),
+);
+
+// Process demo data into hourly statistics
+
+const processData = () => {
+  console.log('Starting data processing');
+  console.log('Demo data:', demoData);
+
+  const hourlyStats = Array(24)
+    .fill(null)
+    .map(() => ({}));
+  const startOfDay = new Date('2025-01-18T08:00:00Z').getTime();
+  const endOfDay = new Date('2025-01-18T20:00:00Z').getTime();
+
+  console.log('Time range:', {
+    start: new Date(startOfDay).toISOString(),
+    end: new Date(endOfDay).toISOString(),
+  });
+
+  // Filter data for the specific day and count time spent in each category per hour
+  const dayData = demoData.filter(
+    (entry) => entry.time >= startOfDay && entry.time < endOfDay,
+  );
+
+  console.log('Filtered day data:', dayData);
+
+  dayData.forEach((entry, index) => {
+    const hour = new Date(entry.time).getUTCHours();
+    const duration =
+      index < dayData.length - 1
+        ? (dayData[index + 1].time - entry.time) / 1000 / 60 // minutes until next entry
+        : 60; // Last entry gets 60 minutes
+
+    console.log('Processing entry:', {
+      hour,
+      category: entry.category,
+      duration,
+      time: new Date(entry.time).toISOString(),
+    });
+
+    hourlyStats[hour][entry.category] =
+      (hourlyStats[hour][entry.category] || 0) + duration;
+  });
+
+  console.log('Hourly stats before percentage:', hourlyStats);
+
+  // Convert to percentage and format for the chart
+  const formattedData = hourlyStats
+    .map((hour, index) => {
+      const total =
+        Object.values(hour).reduce(
+          (sum: number, val: number) => sum + val,
+          0,
+        ) || 60;
+      const stats = { hour: index.toString().padStart(2, '0') };
+      Object.entries(hour).forEach(([category, minutes]) => {
+        stats[category] = ((minutes as number) / total) * 100;
+      });
+      return stats;
+    })
+    .slice(8, 21); // Only keep hours 8-20
+
+  console.log('Final formatted data:', formattedData);
+  return formattedData;
+};
+
+const chartData = processData();
 
 interface StatsProps {
   onCancel: () => void;
@@ -81,37 +150,41 @@ export function Stats({ onCancel }: StatsProps) {
             <BarChart
               width={500}
               height={400}
-              data={data}
+              data={chartData}
               margin={{
                 top: 20,
                 right: 30,
                 left: 20,
-                bottom: 25,
+                bottom: 40,
               }}
             >
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis
                 dataKey="hour"
-                label={{ value: "O'clock", position: 'bottom', dy: 20 }}
+                label={{ value: 'Hour (UTC)', position: 'bottom', dy: 35 }}
+                tick={{ dy: 10 }}
               />
               <YAxis
                 label={{ value: 'Percent', angle: -90, position: 'insideLeft' }}
               />
               <Tooltip />
-              <Legend verticalAlign="top" height={36} />
-              <Bar
-                dataKey="focused"
-                stackId="a"
-                fill="#4CAF50"
-                name="Focused"
+              <Legend
+                verticalAlign="top"
+                align="center"
+                layout="horizontal"
+                iconSize={10}
+                wrapperStyle={{
+                  lineHeight: '40px', // This increases vertical spacing between legend items
+                }}
               />
-              <Bar
-                dataKey="distracted"
-                stackId="a"
-                fill="#FFC107"
-                name="Distracted"
-              />
-              <Bar dataKey="away" stackId="a" fill="#FF9800" name="Away" />
+              {uniqueCategories.map((category) => (
+                <Bar
+                  key={category}
+                  dataKey={category}
+                  stackId="a"
+                  fill={categoryColors[category]}
+                />
+              ))}
             </BarChart>
           </Box>
         </VStack>
