@@ -265,25 +265,25 @@ export function Stats({ onCancel }: StatsProps) {
           {granularity === 'nuclear' && (
             <List spacing={2}>
               {demoData.slice(0, 8).map((entry, index) => (
-                <ListItem key={index}>
-                  • {new Date(entry.time).toLocaleTimeString()} -{' '}
-                  {entry.category} (
-                  {Math.round(
-                    index < demoData.length - 1
-                      ? (demoData[index + 1].time - entry.time) / 1000 / 60
-                      : 60,
+              <ListItem key={index}>
+                • {new Date(entry.time).toLocaleTimeString()} -{' '}
+                {entry.category} (
+                {Math.round(
+                index < demoData.length - 1
+                  ? (demoData[index + 1].time - entry.time) / 1000 / 60
+                  : 60,
+                )}
+                m) - {entry.summary.length > 30 ? `${entry.summary.substring(0, 30)}...` : entry.summary}
+                {Array.isArray(entry.summary) && (
+                <List spacing={1} pl={4} fontSize="xs">
+                  {entry.summary.map(
+                  (detail: string, detailIndex: number) => (
+                    <ListItem key={detailIndex}>• {detail}</ListItem>
+                  ),
                   )}
-                  m)
-                  {Array.isArray(entry.summary) && (
-                    <List spacing={1} pl={4} fontSize="xs">
-                      {entry.summary.map(
-                        (detail: string, detailIndex: number) => (
-                          <ListItem key={detailIndex}>• {detail}</ListItem>
-                        ),
-                      )}
-                    </List>
-                  )}
-                </ListItem>
+                </List>
+                )}
+              </ListItem>
               ))}
             </List>
           )}
