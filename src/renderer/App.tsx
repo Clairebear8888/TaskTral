@@ -16,6 +16,7 @@ import { Route, MemoryRouter as Router, Routes } from 'react-router-dom';
 import { useDispatch } from 'zutron';
 import { useStore } from './hooks/useStore';
 import { RunHistory } from './RunHistory';
+import { Stats } from './Stats';
 
 function Main() {
   console.log('MAIN STARTING UP');
@@ -37,6 +38,8 @@ function Main() {
   const [isInputMode, setIsInputMode] = React.useState(true);
 
   const [tasks, setTasks] = React.useState();
+
+  const [isStatsMode, setIsStatsMode] = React.useState(false);
 
   const startRun = () => {
     // Update Zustand state before starting the run
@@ -108,6 +111,10 @@ function Main() {
 
     console.log({ tasks: tasksWithColors });
   };
+
+  if (isStatsMode) {
+    return <Stats onCancel={() => setIsStatsMode(false)} />;
+  }
 
   return (
     <Box
@@ -292,6 +299,25 @@ function Main() {
               isDisabled={!running && localInstructions?.trim() === ''}
             >
               {isInputMode ? 'OK' : 'Start my day'}
+            </Button>
+            <Button
+              bg="transparent"
+              fontWeight="normal"
+              _hover={{
+                bg: 'whiteAlpha.500',
+                borderColor: 'blackAlpha.300',
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+              }}
+              _focus={{
+                boxShadow: '0 1px 4px rgba(0, 0, 0, 0.05)',
+                outline: 'none',
+              }}
+              borderRadius="12px"
+              border="1px solid"
+              borderColor="blackAlpha.200"
+              onClick={() => setIsStatsMode(!isStatsMode)}
+            >
+              Stats
             </Button>
           </HStack>
         </HStack>
