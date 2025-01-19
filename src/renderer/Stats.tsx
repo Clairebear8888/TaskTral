@@ -222,7 +222,6 @@ export function Stats({ onCancel }: StatsProps) {
           </Box>
             {granularity === 'chilled' && (
             <List spacing={2}>
-              <ListItem>• Chilled Log</ListItem>
               {uniqueCategories.map((category) => {
               const totalMinutes = demoData
                 .filter((entry) => entry.category === category)
@@ -243,13 +242,21 @@ export function Stats({ onCancel }: StatsProps) {
             )}
             {granularity === 'normal' && (
             <List spacing={2}>
-              <ListItem>• Normal Log</ListItem>
               {uniqueCategories.map((category) => (
               <ListItem key={category}>
               • {category}
               <List spacing={1} pl={4} fontSize="sm">
-              <ListItem>• Activity 1</ListItem>
-              <ListItem>• Activity 2</ListItem>
+                {Array.from(
+                new Set(
+                  demoData
+                  .filter((entry) => entry.category === category)
+                  .map((entry) => entry.summary)
+                )
+                ).map((summary, index) => (
+                <ListItem key={index}>
+                  • {summary}
+                </ListItem>
+                ))}
               </List>
               </ListItem>
               ))}
@@ -257,7 +264,6 @@ export function Stats({ onCancel }: StatsProps) {
             )}
             {granularity === 'nuclear' && (
             <List spacing={2}>
-              <ListItem>• Nuclear Log</ListItem>
               {demoData.slice(0, 8).map((entry, index) => (
               <ListItem key={index}>
               • {new Date(entry.time).toLocaleTimeString()} - {entry.category} ({Math.round((index < demoData.length - 1 ? (demoData[index + 1].time - entry.time) / 1000 / 60 : 60))}m)
