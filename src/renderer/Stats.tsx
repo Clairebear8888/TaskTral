@@ -243,9 +243,15 @@ export function Stats({ onCancel }: StatsProps) {
             {granularity === 'normal' && (
             <List spacing={2}>
               <ListItem>• Normal Log</ListItem>
-              <ListItem>• 08:00 - 08:30 Emails (30m)</ListItem>
-              <ListItem>• 08:30 - 09:00 Meeting (30m)</ListItem>
-              <ListItem>• 09:00 - 10:00 Coding (1h)</ListItem>
+              {uniqueCategories.map((category) => (
+              <ListItem key={category}>
+              • {category}
+              <List spacing={1} pl={4} fontSize="sm">
+              <ListItem>• Activity 1</ListItem>
+              <ListItem>• Activity 2</ListItem>
+              </List>
+              </ListItem>
+              ))}
             </List>
             )}
             {granularity === 'nuclear' && (
