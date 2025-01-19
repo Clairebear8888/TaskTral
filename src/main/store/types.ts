@@ -26,6 +26,14 @@ export type AppState = {
   RUN_AGENT: () => void;
   STOP_RUN: () => void;
   SET_INSTRUCTIONS: (instructions: string) => void;
+  SET_TASKS: (
+    tasks: {
+      title: string;
+      timeValue: number;
+      timeUnit: string;
+      color: string;
+    }[],
+  ) => void;
   SET_FULLY_AUTO: (fullyAuto: boolean) => void;
   CLEAR_HISTORY: () => void;
 };

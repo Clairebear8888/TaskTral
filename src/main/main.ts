@@ -8,13 +8,13 @@
  * When running `npm run build` or `npm run build:main`, this file is compiled to
  * `./src/main.js` using webpack. This gives us some performance wins.
  */
-import { app, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import log from 'electron-log';
 import { autoUpdater } from 'electron-updater';
 import path from 'path';
 import { mainZustandBridge } from 'zutron/main';
-import { createMainWindow } from './window';
 import { store } from './store/create';
+import { createMainWindow } from './window';
 
 class AppUpdater {
   constructor() {
@@ -55,6 +55,69 @@ const installExtensions = async () => {
     .catch(console.log);
 };
 
+// Function to create the chromeless window
+function createChromelessWindow() {
+  // Resolve paths for both dev and prod
+  const preloadPath = app.isPackaged
+    ? path.join(__dirname, 'chromeless-preload.js')
+    : path.join(__dirname, '../../src/main/chromeless-preload.js');
+  const htmlPath = app.isPackaged
+    ? path.join(__dirname, 'chromeless.html')
+    : path.join(__dirname, '../../src/main/chromeless.html');
+
+  console.log('Loading preload from:', preloadPath);
+  console.log('Loading HTML from:', htmlPath);
+
+  const chromelessWindow = new BrowserWindow({
+    width: 400,
+    height: 300,
+    frame: false,
+    alwaysOnTop: true,
+    transparent: true,
+    resizable: false,
+    x: 50,
+    y: 50,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath,
+      devTools: true,
+    },
+  });
+
+  chromelessWindow.loadFile(htmlPath).catch((err) => {
+    console.error('Failed to load chromeless window:', err);
+  });
+
+  // Enable DevTools for debugging
+  chromelessWindow.webContents.openDevTools({ mode: 'detach' });
+
+  // Log window lifecycle events
+  chromelessWindow.webContents.on('did-finish-load', () => {
+    console.log('Chromeless window loaded');
+  });
+
+  chromelessWindow.webContents.on(
+    'did-fail-load',
+    (event, errorCode, errorDescription) => {
+      console.error(
+        'Chromeless window failed to load:',
+        errorCode,
+        errorDescription,
+      );
+    },
+  );
+
+  // Prevent the window from being hidden
+  chromelessWindow.on('minimize', () => {
+    chromelessWindow.restore();
+  });
+
+  chromelessWindow.on('closed', () => {
+    console.log('Chromeless window closed');
+  });
+}
+
 const initializeApp = async () => {
   if (isDebug) {
     await installExtensions();
@@ -79,6 +142,9 @@ const initializeApp = async () => {
   });
 
   app.on('quit', unsubscribe);
+
+  // Create chromeless window
+  createChromelessWindow();
 };
 
 /**

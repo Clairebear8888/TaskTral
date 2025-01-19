@@ -2,15 +2,19 @@ import { BetaMessageParam } from '@anthropic-ai/sdk/resources/beta/messages/mess
 import { Button, Key, keyboard, mouse, Point } from '@nut-tree-fork/nut-js';
 // import { createCanvas, loadImage } from 'canvas';
 import { Mistral } from '@mistralai/mistralai';
-import { desktopCapturer, screen } from 'electron';
+import { BrowserWindow, desktopCapturer, screen } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { hideWindowBlock } from '../window';
 import { anthropic } from './anthropic';
 import { AppState, NextAction } from './types';
-import { json } from 'stream/consumers';
 
 const MAX_STEPS = 50;
+
+interface CategoryResponses {
+  name: string;
+  summaries: string[];
+}
 
 function getScreenDimensions(): { width: number; height: number } {
   const primaryDisplay = screen.getPrimaryDisplay();
@@ -205,7 +209,7 @@ export const getNextScreenshot = async (
   recordScreenDir: string,
   replayScreens: boolean,
   screenFiles: string[],
-): Promise<{image: string, is_screenshot: boolean}> => {
+): Promise<{ image: string; is_screenshot: boolean }> => {
   // Capture a screenshot or replay a recorded screenshot
 
   if (screenFiles.length > 0) {
@@ -215,7 +219,10 @@ export const getNextScreenshot = async (
       throw new Error(`List size > 0, but shift failed`);
     }
     console.log('RECORDED SCREEN', screenFile);
-    return {image:fs.readFileSync(screenFile, 'base64'), is_screenshot:false};
+    return {
+      image: fs.readFileSync(screenFile, 'base64'),
+      is_screenshot: false,
+    };
   }
 
   console.log('TAKE SCREENSHOT');
@@ -225,78 +232,78 @@ export const getNextScreenshot = async (
   const filePath = path.join(recordScreenDir, `screenshot-${timestamp}.png`);
   fs.writeFileSync(filePath, screenBase64, 'base64');
   console.log('SCREEN RECORDED', filePath);
-  return {image:screenBase64, is_screenshot:true};
+  return { image: screenBase64, is_screenshot: true };
 };
 
-export const getTasks = async (
-  client: Mistral,
-  instructions: string,
-): Promise<any> => {
-  const chatResponseTasks = await client.chat.complete({
-    responseFormat: { type: 'json_object' },
-    model: 'mistral-small-latest',
-    messages: [
-      {
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
-            Use as little words to describe the task as possible. If the instruction is "I am working on code" then the task should be "Code". So try to be as concise as possible.
-            Example output:
-{
-  "tasks": [
-    {
-      "title": "Write a blog post",
-      "timeValue": 10,
-      "timeUnit": "minutes"
-    },
-    {
-      "title": "Write a blog post",
-      "timeValue": 2,
-      "timeUnit": "hours"
-    }
-  ]
-}
-`,
-          },
-          {
-            type: 'text',
-            text: instructions || '',
-          },
-        ],
-      },
-    ],
-  });
+// export const getTasks = async (
+//   client: Mistral,
+//   instructions: string,
+// ): Promise<any> => {
+//   const chatResponseTasks = await client.chat.complete({
+//     responseFormat: { type: 'json_object' },
+//     model: 'mistral-small-latest',
+//     messages: [
+//       {
+//         role: 'user',
+//         content: [
+//           {
+//             type: 'text',
+//             text: `an array named "tasks" of objects with the following properties: title (e.g. "Write a blog post"), timeValue: (e.g. 10), timeUnit (seconds, minutes or hours), e.g.
+//             Use as little words to describe the task as possible. If the instruction is "I am working on code" then the task should be "Code". So try to be as concise as possible.
+//             Example output:
+// {
+//   "tasks": [
+//     {
+//       "title": "Write a blog post",
+//       "timeValue": 10,
+//       "timeUnit": "minutes"
+//     },
+//     {
+//       "title": "Write a blog post",
+//       "timeValue": 2,
+//       "timeUnit": "hours"
+//     }
+//   ]
+// }
+// `,
+//           },
+//           {
+//             type: 'text',
+//             text: instructions || '',
+//           },
+//         ],
+//       },
+//     ],
+//   });
 
-  const tasks = chatResponseTasks.choices?.[0]?.message?.content
-    ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
-    : { tasks: [] } || [];
+//   const tasks = chatResponseTasks.choices?.[0]?.message?.content
+//     ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+//     : { tasks: [] } || [];
 
-  // write tasks to tasks.json
-  fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
-  return tasks;
-};
-
+//   // write tasks to tasks.json
+//   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+//   return tasks;
+// };
 
 export const postProcessData = async (
   client: Mistral,
   postProcessingData: CategoryResponses[],
 ): Promise<any> => {
-  let msg = []
+  const msg = [];
 
   for (const category of postProcessingData) {
     console.log('CATEGORY', category.name);
-  
+
     const chatResponseTasks = await client.chat.complete({
       responseFormat: { type: 'json_object' },
       model: 'mistral-small-latest',
-      messages: [{
-        role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: `an json formatted list containing 2 elements or less that precisely describes the listed activities that are separated with semicolon. Use as little words to describe each element as possible. Try to be as concise as possible.\
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: `an json formatted list containing 2 elements or less that precisely describes the listed activities that are separated with semicolon. Use as little words to describe each element as possible. Try to be as concise as possible.\
             Example output:
             {
               "activities": [
@@ -304,35 +311,41 @@ export const postProcessData = async (
                 "The user is writing a Python script."
                 ]
                 }`,
-          },
-          {
-            type: 'text',
-            text: category.summaries.join('; '), // join all summaries with a semicolon
-          },
-        ],
-      }],
+            },
+            {
+              type: 'text',
+              text: category.summaries.join('; '), // join all summaries with a semicolon
+            },
+          ],
+        },
+      ],
     });
-    console.log('CHAT RESPONSE', chatResponseTasks.choices?.[0]?.message?.content as string);
- 
-  // const tasks = chatResponseTasks.choices?.[0]?.message?.content
-  //   ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
-  //   : { tasks: [] } || [];
+    console.log(
+      'CHAT RESPONSE',
+      chatResponseTasks.choices?.[0]?.message?.content as string,
+    );
 
-  //    // write tasks to tasks.json
-  //   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
+    // const tasks = chatResponseTasks.choices?.[0]?.message?.content
+    //   ? JSON.parse(chatResponseTasks.choices[0].message.content as string)?.tasks
+    //   : { tasks: [] } || [];
+
+    //    // write tasks to tasks.json
+    //   fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
   }
-  //return tasks;
+  // return tasks;
 };
-
 
 export const getRequest = async (
   client: Mistral,
   tasks: any,
   screenBase64: string,
-): Promise<{response: any, json: {
-  task: string,
-  summary: string
-}}> => {
+): Promise<{
+  response: any;
+  json: {
+    task: string;
+    summary: string;
+  };
+}> => {
   // text: 'Summarize what the user is doing in this screenshot. Just reply with one single sentence. Be very specific. Don\'t say "the user is working" or "the user is coding", instead mention the project they are working on or the subject of the email they are looking at or writing, and to whom they are writing. Only focus on the biggest visible application window.',
   const ai_prompt = `Given this set of Tasks and a screenshot, determine which task the user is working on.
 
@@ -390,18 +403,23 @@ export const getRequest = async (
       fs.writeFileSync('activity_log.jsonl', '');
     }
     fs.appendFileSync('activity_log.jsonl', jsonLine);
-    if (typeof(sentence) == 'string') {
-      let task = JSON.parse(sentence).task;
-      let summary = JSON.parse(sentence).summary;
-      return {response: chatResponse, json: {task: task, summary: summary}};
+    if (typeof sentence === 'string') {
+      const { task } = JSON.parse(sentence);
+      const { summary } = JSON.parse(sentence);
+      return { response: chatResponse, json: { task, summary } };
     }
   }
-  return {response: chatResponse, json: {task: '', summary: ''}};
+  return { response: chatResponse, json: { task: '', summary: '' } };
 };
 
-export const readRecordedScreens = async (recordScreenBase: string): Promise<string[]> => {
+export const readRecordedScreens = async (
+  recordScreenBase: string,
+): Promise<string[]> => {
   let screenFiles: string[] = [];
-  let directories = fs.readdirSync(recordScreenBase, {withFileTypes: true, recursive: false});
+  const directories = fs.readdirSync(recordScreenBase, {
+    withFileTypes: true,
+    recursive: false,
+  });
   while (directories.length > 0) {
     const dir = directories.shift();
     if (dir == undefined) {
@@ -412,54 +430,50 @@ export const readRecordedScreens = async (recordScreenBase: string): Promise<str
       const files = fs.readdirSync(path.join(recordScreenBase, dir.name));
       const filteredFiles = files.filter((f) => f.endsWith('.png'));
       if (filteredFiles.length > 0) {
-        const pathFiles = filteredFiles.map((f) => path.join(recordScreenBase, dir.name, f));
+        const pathFiles = filteredFiles.map((f) =>
+          path.join(recordScreenBase, dir.name, f),
+        );
         console.log('found files: #', pathFiles.length);
         screenFiles = screenFiles.concat(pathFiles);
       }
     }
   }
-  return screenFiles
-}
+  return screenFiles;
+};
 
-interface CategoryResponses {
-  name: string;
-  summaries: string[];
-}
-
-
-export const appendResponseToPostProcessingData = async (postProcessingData: CategoryResponses[], content: {
-  task: string,
-  summary: string
-}): Promise<CategoryResponses[]> => {
-
-    // load string with json content in a variable
-    console.log('CONTENT', content);
-    if (content.task != '')
-    {
-      // add the content to the postProcessingData array
-      let found = false;
-      for (const category of postProcessingData) {
-        if (category.name == content.task) {
-          console.log('ADDING NEW TASK TO CATEGORY', content.task);
-          category.summaries.push(content.summary);
-          found = true;
-          break;
-        }
+export const appendResponseToPostProcessingData = async (
+  postProcessingData: CategoryResponses[],
+  content: {
+    task: string;
+    summary: string;
+  },
+): Promise<CategoryResponses[]> => {
+  // load string with json content in a variable
+  console.log('CONTENT', content);
+  if (content.task != '') {
+    // add the content to the postProcessingData array
+    let found = false;
+    for (const category of postProcessingData) {
+      if (category.name == content.task) {
+        console.log('ADDING NEW TASK TO CATEGORY', content.task);
+        category.summaries.push(content.summary);
+        found = true;
+        break;
       }
-      if (found == false) {
-        console.log('ADDING NEW CATEGORY', content.task);
-        postProcessingData.push({
-          name: content.task,
-          summaries: [content.summary]
-        });
-      }
-      console.log('POST PROCESSING DATA', postProcessingData);
     }
-    else {
-      console.log('NO TASK FOUND - CANNOT BE ASSIGNED TO CATEGORY');
+    if (found == false) {
+      console.log('ADDING NEW CATEGORY', content.task);
+      postProcessingData.push({
+        name: content.task,
+        summaries: [content.summary],
+      });
     }
-    return postProcessingData;
+    console.log('POST PROCESSING DATA', postProcessingData);
+  } else {
+    console.log('NO TASK FOUND - CANNOT BE ASSIGNED TO CATEGORY');
   }
+  return postProcessingData;
+};
 
 export const runAgent = async (
   setState: (state: AppState) => void,
@@ -491,23 +505,25 @@ export const runAgent = async (
     screenFiles = await readRecordedScreens(recordScreenBaseDir);
     console.log('RECORDED SCREENS', screenFiles);
   }
-  
+
   const apiKey = 'rNQf5SkjXzuEbKHMjRGdsmgWlBLODXhz';
   const client = new Mistral({ apiKey });
 
   console.log('START RUNNING with instructions:', getState().instructions);
 
   console.log('GET TASKS', getState().instructions || '');
-  const tasks = await getTasks(client, getState().instructions || '');
-  setState({
-    ...getState(),
-    tasks,
-  });
+  const { tasks } = getState();
+
+  // const tasks = await getTasks(client, getState().instructions || '');
+  // setState({
+  //   ...getState(),
+  //   tasks,
+  // });
 
   console.log('TASKS', tasks);
 
-  //define an array of categories which have a name and a list of tasks. Name the array 'postProcessingData'
-  let postProcessingData : CategoryResponses[]= [];
+  // define an array of categories which have a name and a list of tasks. Name the array 'postProcessingData'
+  let postProcessingData: CategoryResponses[] = [];
 
   while (getState().running) {
     const screen_data = await getNextScreenshot(
@@ -523,11 +539,27 @@ export const runAgent = async (
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    postProcessingData = await appendResponseToPostProcessingData(postProcessingData, chatRsp.json);
+    // Send category update to chromeless window
+    BrowserWindow.getAllWindows().forEach((window) => {
+      if (window.getTitle() === 'Chromeless Window') {
+        // Find the matching task to get its color
+        const taskColor =
+          tasks.find((t) => t.title === chatRsp.json.task)?.color || '#607D8B';
+        window.webContents.send('category-update', {
+          name: chatRsp.json.task,
+          color: taskColor,
+        });
+      }
+    });
+
+    postProcessingData = await appendResponseToPostProcessingData(
+      postProcessingData,
+      chatRsp.json,
+    );
     await postProcessData(client, postProcessingData);
 
     if (screen_data.is_screenshot == true) {
-      // no more screens to replay, wait for 
+      // no more screens to replay, wait for
       await new Promise((resolve) => {
         setTimeout(resolve, 5000);
       });

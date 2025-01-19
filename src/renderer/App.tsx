@@ -100,6 +100,8 @@ function Main() {
 
     setTasks(tasksWithColors);
 
+    dispatch({ type: 'SET_TASKS', payload: tasksWithColors });
+
     // write tasks to tasks.json
     // fs.writeFileSync('tasks.json', JSON.stringify(tasks, null, 2));
 
