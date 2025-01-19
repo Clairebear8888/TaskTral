@@ -27,7 +27,7 @@ export const data = [
   {
     time: 1737187500000,
     category: 'Ticket #27',
-    summary: 'I switched focus to Ticket #28',
+    summary: 'I commented Ticket #27',
   },
   {
     time: 1737187560000,
