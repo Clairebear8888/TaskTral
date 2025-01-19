@@ -198,7 +198,7 @@ export function Stats({ onCancel }: StatsProps) {
           {/* Granularity Slider */}
           <Box w="full" pt={6} pb={8} px={8}>
             <Slider
-              defaultValue={50}
+              defaultValue={0}
               min={0}
               max={100}
               step={50}
@@ -257,11 +257,19 @@ export function Stats({ onCancel }: StatsProps) {
             {granularity === 'nuclear' && (
             <List spacing={2}>
               <ListItem>• Nuclear Log</ListItem>
-              <ListItem>• 08:00 - 08:10 Emails (10m)</ListItem>
-              <ListItem>• 08:10 - 08:20 Meeting (10m)</ListItem>
-              <ListItem>• 08:20 - 08:30 Coding (10m)</ListItem>
-            </List>
-            )}
+              {demoData.slice(0, 8).map((entry, index) => (
+              <ListItem key={index}>
+              • {new Date(entry.time).toLocaleTimeString()} - {entry.category} ({Math.round((index < demoData.length - 1 ? (demoData[index + 1].time - entry.time) / 1000 / 60 : 60))}m)
+              {Array.isArray(entry.summary) && (
+                <List spacing={1} pl={4} fontSize="xs">
+                  {entry.summary.map((detail: string, detailIndex: number) => (
+                    <ListItem key={detailIndex}>• {detail}</ListItem>
+                  ))}
+                </List>
+              )}
+              </ListItem>
+              ))}
+            </List>)}
 
           <Text mt={8} fontSize="2xl">
             Granularity "{granularity}"
