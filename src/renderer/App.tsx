@@ -182,7 +182,7 @@ function Main() {
         }}
       >
         <Box alignSelf="flex-start" pl={4} fontSize="lg">
-          Good morning, Jan
+          Good morning - tasks for today?
         </Box>
         {!tasks && (
           <Box
