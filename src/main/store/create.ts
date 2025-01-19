@@ -8,7 +8,7 @@ export const store = createStore<AppState>((set, get) => ({
 - Meetings (Standup , Retro) 1h
 - Try mistral API in python CLI (2h)
 - Ticket #26  typescript refactoring of postprocessor (4h)
-- Other`,
+- Other (1h)`,
   fullyAuto: true, // renamed and changed default to true
   running: false,
   error: null,
