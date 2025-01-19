@@ -27,7 +27,7 @@ export const data = [
   {
     time: 1737187500000,
     category: 'Ticket #27',
-    summary: 'I switched focus to Ticket #27',
+    summary: 'I switched focus to Ticket #28',
   },
   {
     time: 1737187560000,
@@ -37,7 +37,7 @@ export const data = [
   {
     time: 1737187620000,
     category: 'Hacker News',
-    summary: 'I switched focus to Hacker News',
+    summary: 'I switched focus to Hacker News and read some articles',
   },
   {
     time: 1737187680000,
@@ -47,7 +47,7 @@ export const data = [
   {
     time: 1737187740000,
     category: 'Mistral API',
-    summary: 'I switched focus to Mistral API',
+    summary: 'I switched focus to Mistral API, compared with older version',
   },
   {
     time: 1737187800000,
