@@ -288,9 +288,6 @@ export function Stats({ onCancel }: StatsProps) {
             </List>
           )}
 
-          <Text mt={8} fontSize="2xl">
-            Granularity "{granularity}"
-          </Text>
         </VStack>
       </HStack>
     </Box>
