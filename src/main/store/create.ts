@@ -5,12 +5,14 @@ import { AppState } from './types';
 
 export const store = createStore<AppState>((set, get) => ({
   instructions: `- Hacker News (2H)
-- Code (4h)
-- Meetings (1h)`,
+- Meetings (Standup , Retro) 1h
+- Try mistral API in python CLI (2h)
+- Ticket #26  typescript refactoring of postprocessor (4h) `,
   fullyAuto: true, // renamed and changed default to true
   running: false,
   error: null,
   runHistory: [],
+  tasks: [],
   RUN_AGENT: async () => runAgent(set, get),
   STOP_RUN: () => set({ running: false }),
   SET_INSTRUCTIONS: (instructions) => set({ instructions }),
