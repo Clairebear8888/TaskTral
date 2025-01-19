@@ -219,13 +219,43 @@ export function Stats({ onCancel }: StatsProps) {
               <SliderThumb />
             </Slider>
           </Box>
-
-          <List spacing={2}>
-            <ListItem>• Chronological Log</ListItem>
-            <ListItem>• 12:03 - 12:04 Hacker news (1h)</ListItem>
-            <ListItem>• 12:03 - 12:04 Hacker news (1h)</ListItem>
-            <ListItem>• 12:03 - 12:04 Hacker news (1h)</ListItem>
-          </List>
+            {granularity === 'chilled' && (
+            <List spacing={2}>
+              <ListItem>• Chilled Log</ListItem>
+              {uniqueCategories.map((category) => {
+              const totalMinutes = demoData
+                .filter((entry) => entry.category === category)
+                .reduce((sum, entry, index, array) => {
+                const duration =
+                  index < array.length - 1
+                  ? (array[index + 1].time - entry.time) / 1000 / 60
+                  : 60;
+                return duration;
+                }, 0);
+              return (
+                <ListItem key={category}>
+                • {category} ({Math.round(totalMinutes)}m)
+                </ListItem>
+              );
+              })}
+            </List>
+            )}
+            {granularity === 'normal' && (
+            <List spacing={2}>
+              <ListItem>• Normal Log</ListItem>
+              <ListItem>• 08:00 - 08:30 Emails (30m)</ListItem>
+              <ListItem>• 08:30 - 09:00 Meeting (30m)</ListItem>
+              <ListItem>• 09:00 - 10:00 Coding (1h)</ListItem>
+            </List>
+            )}
+            {granularity === 'nuclear' && (
+            <List spacing={2}>
+              <ListItem>• Nuclear Log</ListItem>
+              <ListItem>• 08:00 - 08:10 Emails (10m)</ListItem>
+              <ListItem>• 08:10 - 08:20 Meeting (10m)</ListItem>
+              <ListItem>• 08:20 - 08:30 Coding (10m)</ListItem>
+            </List>
+            )}
 
           <Text mt={8} fontSize="2xl">
             Granularity "{granularity}"
