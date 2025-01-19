@@ -113,7 +113,7 @@ interface StatsProps {
 }
 
 export function Stats({ onCancel }: StatsProps) {
-  const [granularity, setGranularity] = useState<string>('normal');
+  const [granularity, setGranularity] = useState<string>('chilled');
 
   const handleSliderChange = (value: number) => {
     if (value <= 33) setGranularity('chilled');
@@ -220,27 +220,27 @@ export function Stats({ onCancel }: StatsProps) {
               <SliderThumb />
             </Slider>
           </Box>
-            {granularity === 'chilled' && (
+          {granularity === 'chilled' && (
             <List spacing={2}>
               {uniqueCategories.map((category) => {
-              const totalMinutes = demoData
-                .filter((entry) => entry.category === category)
-                .reduce((sum, entry, index, array) => {
-                const duration =
-                  index < array.length - 1
-                  ? (array[index + 1].time - entry.time) / 1000 / 60
-                  : 60;
-                return duration;
-                }, 0);
-              return (
-                <ListItem key={category}>
-                • {category} ({Math.round(totalMinutes)}m)
-                </ListItem>
-              );
+                const totalMinutes = demoData
+                  .filter((entry) => entry.category === category)
+                  .reduce((sum, entry, index, array) => {
+                    const duration =
+                      index < array.length - 1
+                        ? (array[index + 1].time - entry.time) / 1000 / 60
+                        : 60;
+                    return duration;
+                  }, 0);
+                return (
+                  <ListItem key={category}>
+                    • {category} ({Math.round(totalMinutes)}m)
+                  </ListItem>
+                );
               })}
             </List>
-            )}
-            {granularity === 'normal' && (
+          )}
+          {granularity === 'normal' && (
             <List spacing={2}>
               {uniqueCategories.map((category) => (
               <ListItem key={category}>
@@ -261,22 +261,32 @@ export function Stats({ onCancel }: StatsProps) {
               </ListItem>
               ))}
             </List>
-            )}
-            {granularity === 'nuclear' && (
+          )}
+          {granularity === 'nuclear' && (
             <List spacing={2}>
               {demoData.slice(0, 8).map((entry, index) => (
-              <ListItem key={index}>
-              • {new Date(entry.time).toLocaleTimeString()} - {entry.category} ({Math.round((index < demoData.length - 1 ? (demoData[index + 1].time - entry.time) / 1000 / 60 : 60))}m)
-              {Array.isArray(entry.summary) && (
-                <List spacing={1} pl={4} fontSize="xs">
-                  {entry.summary.map((detail: string, detailIndex: number) => (
-                    <ListItem key={detailIndex}>• {detail}</ListItem>
-                  ))}
-                </List>
-              )}
-              </ListItem>
+                <ListItem key={index}>
+                  • {new Date(entry.time).toLocaleTimeString()} -{' '}
+                  {entry.category} (
+                  {Math.round(
+                    index < demoData.length - 1
+                      ? (demoData[index + 1].time - entry.time) / 1000 / 60
+                      : 60,
+                  )}
+                  m)
+                  {Array.isArray(entry.summary) && (
+                    <List spacing={1} pl={4} fontSize="xs">
+                      {entry.summary.map(
+                        (detail: string, detailIndex: number) => (
+                          <ListItem key={detailIndex}>• {detail}</ListItem>
+                        ),
+                      )}
+                    </List>
+                  )}
+                </ListItem>
               ))}
-            </List>)}
+            </List>
+          )}
 
           <Text mt={8} fontSize="2xl">
             Granularity "{granularity}"
