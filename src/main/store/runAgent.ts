@@ -90,7 +90,7 @@ const getScreenshot = async (): Promise<string> => {
     if (chromelessWindow) {
       // Longer delay before showing to ensure screenshot is complete
       await new Promise((resolve) => setTimeout(resolve, 100));
-      chromelessWindow.setOpacity(originalOpacity);
+      // chromelessWindow.setOpacity(originalOpacity);
     }
   }
 };
@@ -560,6 +560,14 @@ export const runAgent = async (
   let firstCategoryRecognized = false;
 
   while (getState().running) {
+    // Make chromeless window transparent before taking screenshot
+    const chromelessWindow = BrowserWindow.getAllWindows().find(
+      (window) => window.getTitle() === 'Chromeless Window',
+    );
+    if (chromelessWindow) {
+      chromelessWindow.setOpacity(0);
+    }
+
     const screenData = await getNextScreenshot(
       recordScreenDir,
       replayScreens,
@@ -573,23 +581,25 @@ export const runAgent = async (
     console.timeEnd('mistral-request');
     console.dir(chatResponse, { depth: null });
 
-    // Send category update to chromeless window
+    // Send category update to chromeless window and make it visible again
     BrowserWindow.getAllWindows().forEach((window) => {
       if (window.getTitle() === 'Chromeless Window') {
         // Find the matching task to get its color and progress
         const task = tasks.find((t: Task) => t.title === chatRsp.json.task);
-
-        // Make window visible after first category recognition
-        if (!firstCategoryRecognized && chatRsp.json.task) {
-          firstCategoryRecognized = true;
-          window.setOpacity(1);
-        }
 
         window.webContents.send('category-update', {
           name: chatRsp.json.task,
           color: task?.color || '#607D8B',
           progress: task?.progress || 0,
         });
+
+        // Make window visible after getting response
+        if (firstCategoryRecognized) {
+          window.setOpacity(1);
+        } else if (chatRsp.json.task) {
+          firstCategoryRecognized = true;
+          window.setOpacity(1);
+        }
       }
     });
 
