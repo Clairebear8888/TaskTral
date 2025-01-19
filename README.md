@@ -1,11 +1,11 @@
 **Note**: please consider this project a proof of concept. I don't intend to maintain it or merge pull requests. Feel free to fork and build it into something great!
 
 ### Introduction & Motivation
-
 This is the love child of Mistral AI and AI task tracking. 
 
 Credit to [ agent.exe](https://github.com/corbt/agent.exe) by Kyle Corbitt ([corbit](https://github.com/corbt) which gave us a nice head-start.
 
+Tasktral makes the daily standup experience for developers feel like a walk in the park. It automatically tracks and records your key tasks throughout the day, providing insights into your productivity and effectiveness. 
 ### Demo video
 
 ### Screenshot
